@@ -18,6 +18,12 @@ export const ArtifactRequest = z
       .describe(
         "markdown = the Markdown body is the artifact; html = a self-contained interactive page plus the Markdown summary",
       ),
+    assets: z
+      .enum(["embedded", "linked"])
+      .default("embedded")
+      .describe(
+        "format=html only. embedded = fully self-contained (default, works offline). linked = may load exact-version URLs from cdnjs.cloudflare.com, cdn.jsdelivr.net/npm, unpkg.com, and Google Fonts; viewing then needs the network",
+      ),
     markdown: z
       .string()
       .min(1)
@@ -45,6 +51,9 @@ export const ArtifactRequest = z
     }
     if (value.format === "markdown" && value.html !== undefined) {
       context.addIssue({ code: "custom", path: ["html"], message: "html is only accepted with format=html" });
+    }
+    if (value.format === "markdown" && value.assets === "linked") {
+      context.addIssue({ code: "custom", path: ["assets"], message: "assets=linked applies only to format=html" });
     }
   });
 

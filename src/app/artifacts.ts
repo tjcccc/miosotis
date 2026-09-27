@@ -15,12 +15,7 @@ import { digestOf, sha256Hex } from "../infra/digest.js";
 import { containedPath, ensureDir, writeFileAtomic } from "../infra/fs/files.js";
 import { extractCitations, renderMarkdown } from "../infra/render/markdown.js";
 import { artifactBody, htmlDocument, type StatusNotice, sourcePage, statusBanner } from "../infra/render/pages.js";
-import {
-  inspectRichHtml,
-  RICH_CONTENT_SECURITY_POLICY,
-  sandboxedDocument,
-  sandboxFrame,
-} from "../infra/render/rich.js";
+import { inspectRichHtml, richContentSecurityPolicy, sandboxedDocument, sandboxFrame } from "../infra/render/rich.js";
 import { type AppContext, isoNow } from "./context.js";
 import { requireRun } from "./evidence.js";
 
@@ -32,6 +27,8 @@ export interface ArtifactReceipt {
   title: string;
   intent: string;
   format: string;
+  assets: string;
+  linked_hosts: string[];
   evidence_run_id: string;
   content_hash: string;
   citations: string[];
@@ -59,7 +56,10 @@ export function createArtifact(context: AppContext, input: ArtifactRequestInput)
     }
     const run = requireRun(context, request.evidence_run_id);
     const items = new Map(getEvidenceItems(context.db, run.id).map((item) => [item.handle, item]));
-    const rich = request.format === "html" && request.html !== undefined ? inspectRichHtml(request.html) : undefined;
+    const rich =
+      request.format === "html" && request.html !== undefined
+        ? inspectRichHtml(request.html, request.assets)
+        : undefined;
     if (rich !== undefined && rich.problems.length > 0) {
       throw new MiosotisError("validation", `The HTML page cannot be stored: ${rich.problems.join("; ")}`, {
         problems: rich.problems,
@@ -145,6 +145,8 @@ export function createArtifact(context: AppContext, input: ArtifactRequestInput)
       intent: request.intent,
       format: request.format,
       payload_html: request.html ?? null,
+      assets: request.assets,
+      linked_hosts_json: rich !== undefined && request.assets === "linked" ? JSON.stringify(rich.hosts) : null,
       title: request.title,
       request: request.request,
       evidence_run_id: run.id,
@@ -183,6 +185,8 @@ export function createArtifact(context: AppContext, input: ArtifactRequestInput)
       title: request.title,
       intent: request.intent,
       format: request.format,
+      assets: request.assets,
+      linked_hosts: rich?.hosts ?? [],
       evidence_run_id: run.id,
       content_hash: contentHash,
       citations: handles,
@@ -315,6 +319,8 @@ export function artifactView(context: AppContext, id: string, options: { include
     title: artifact.title,
     intent: artifact.intent,
     format: artifact.format,
+    assets: artifact.assets,
+    linked_hosts: linkedHosts(artifact),
     request: artifact.request,
     lifecycle: artifact.lifecycle,
     finalized_at: artifact.finalized_at,
@@ -418,7 +424,7 @@ export function materializeArtifact(context: AppContext, id: string): { path: st
   }
   const directory = artifactDir(context, artifact.id);
   ensureDir(directory);
-  const notices = freshness(context, artifact).map(describeSignal);
+  const notices = [...freshness(context, artifact).map(describeSignal), ...assetNotices(artifact)];
   writeFileAtomic(join(directory, "index.html"), viewerDocument(artifact, statusBanner(notices, isoNow(context))));
   const citations = getCitations(context.db, artifact.id);
   const byRevision = new Map<string, typeof citations>();
@@ -454,6 +460,23 @@ export function materializeArtifact(context: AppContext, id: string): { path: st
   return { path: join(directory, "index.html"), notices: notices.map((notice) => notice.text) };
 }
 
+export function linkedHosts(artifact: ArtifactRow): string[] {
+  return artifact.linked_hosts_json === null ? [] : (JSON.parse(artifact.linked_hosts_json) as string[]);
+}
+
+/** A standing notice for pages that load from the network (not a freshness signal). */
+export function assetNotices(artifact: ArtifactRow): StatusNotice[] {
+  const hosts = linkedHosts(artifact);
+  return artifact.format === "html" && artifact.assets === "linked" && hosts.length > 0
+    ? [
+        {
+          level: "info",
+          text: `This page loads pinned resources from the network: ${hosts.join(", ")}. It sends nothing back, but it needs a connection to display fully.`,
+        },
+      ]
+    : [];
+}
+
 /**
  * The viewable page: a trusted banner and the frozen summary body; for HTML artifacts, the stored page
  * runs above them inside a sandboxed iframe (opaque origin, no network).
@@ -461,10 +484,11 @@ export function materializeArtifact(context: AppContext, id: string): { path: st
 function viewerDocument(artifact: ArtifactRow, banner: string): string {
   const title = artifact.title ?? artifact.id;
   if (artifact.format === "html" && artifact.payload_html !== null) {
-    const page = sandboxedDocument(artifact.payload_html);
+    const hosts = linkedHosts(artifact);
+    const page = sandboxedDocument(artifact.payload_html, hosts);
     return htmlDocument({
       title,
-      csp: RICH_CONTENT_SECURITY_POLICY,
+      csp: richContentSecurityPolicy(hosts),
       body: `${banner}\n${sandboxFrame(title, page)}\n${artifact.rendered_html ?? ""}`,
     });
   }
@@ -496,7 +520,13 @@ export function exportArtifact(
     return { content: artifact.content_markdown, filename: `${artifact.id}.md` };
   }
   if (format === "html") {
-    return { content: viewerDocument(artifact, ""), filename: `${artifact.id}.html` };
+    return {
+      content: viewerDocument(
+        artifact,
+        assetNotices(artifact).length > 0 ? statusBanner(assetNotices(artifact), isoNow(context)) : "",
+      ),
+      filename: `${artifact.id}.html`,
+    };
   }
   return {
     content: `${JSON.stringify(artifactView(context, artifact.id), null, 2)}\n`,

@@ -118,7 +118,8 @@ Rich page variant (`"format": "html"`), for example `--derived-from A-REVIEW`:
 }
 ```
 
-- `html` is at most 5 MB and must be self-contained, with no remote resources. Embed any library yourself, for example as `data:` modules in an import map, and build large requests with a script rather than typing them out.
+- `html` is at most 5 MB. With the default `"assets": "embedded"`, it must be self-contained: embed any library yourself (for example as `data:` modules in an import map), and build large requests with a script rather than typing them out.
+- `"assets": "linked"` (or `--assets linked`) allows exact-version URLs on `cdnjs.cloudflare.com` (`/ajax/libs/<lib>/<version>/…`), `cdn.jsdelivr.net` (`/npm/<pkg>@<version>/…`), `unpkg.com` (`/<pkg>@<version>/…`), `fonts.googleapis.com`, and `fonts.gstatic.com`. The receipt lists `linked_hosts`. Plain http, `latest`, unpinned URLs, and other hosts are rejected.
 - `data-cite` handles are validated like `[@cN]`.
 - `markdown` is required and is what `export --format md` returns.
 

@@ -19,8 +19,15 @@ miosotis is a single-user, local tool with no server, no network access, and no 
 
 - Pages must be self-contained. The page is untrusted code, so it is stored verbatim and only ever shown inside `<iframe sandbox="allow-scripts">`. There is no `allow-same-origin`, so the page gets an opaque origin: no access to the viewer page, cookies, storage, or other files.
 - miosotis injects this policy at the top of the page's `<head>`: `default-src 'none'; script-src 'unsafe-inline' data:; style-src 'unsafe-inline'; img-src data: blob:; font-src data:; media-src data: blob:; worker-src blob:; connect-src 'none'; base-uri 'none'; form-action 'none'`. The page cannot fetch, load remote images, or submit forms. A `srcdoc` frame inherits the viewer's policy, so the viewer uses the same one; the viewer itself contains no scripts, only escaped text.
-- Before storing, the core rejects pages that reference remote resources (including remote import-map entries) or use `<base>` or meta refresh. miosotis ships no page libraries. This gives honest early feedback; the CSP remains the actual boundary.
-- Verified in Chrome on 2026-09-27: in-page `fetch`, a remote image, parent access, and `localStorage` were all blocked, while self-contained Canvas and WebGL pages rendered.
+- Before storing, the core rejects pages that use `<base>` or meta refresh. miosotis ships no page libraries.
+- **`embedded` (default):** any remote resource reference, including remote import-map entries, is rejected.
+- **`linked` (explicit):** only exact-version https URLs on `cdnjs.cloudflare.com`, `cdn.jsdelivr.net/npm`, `unpkg.com`, and Google Fonts are accepted.
+  - The validated hosts are frozen with the artifact, and the page's policy allows scripts, styles, fonts, and images from exactly those origins.
+  - `connect-src 'none'` still applies, so the page can load but never send data. The viewer banner lists the hosts.
+  - Viewing a linked page reveals your IP address to those CDNs, and a CDN outage can break the display. This is the trade-off the user opts into. This gives honest early feedback; the CSP remains the actual boundary.
+- Verified in Chrome on 2026-09-27:
+  - `embedded`: in-page `fetch`, a remote image, parent access, and `localStorage` were all blocked, while self-contained Canvas and WebGL pages rendered.
+  - `linked`: three.js r128 from cdnjs and Google Fonts loaded, while `fetch` to the same allowed host and an image from another host were blocked.
 - The status banner and the cited summary live outside the frame, where the page cannot alter them.
 
 ## Filesystem

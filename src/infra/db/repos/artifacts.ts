@@ -6,6 +6,8 @@ export interface ArtifactRow {
   intent: "review" | "analysis" | "discuss";
   format: "markdown" | "html";
   payload_html: string | null;
+  assets: "embedded" | "linked";
+  linked_hosts_json: string | null;
   title: string | null;
   request: string | null;
   evidence_run_id: string;
@@ -22,15 +24,18 @@ export interface ArtifactRow {
 
 export function insertArtifact(db: Database, row: ArtifactRow): void {
   db.run(
-    `INSERT INTO artifacts (id, schema_version, intent, format, payload_html, title, request, evidence_run_id, content_markdown,
-       rendered_html, content_hash, generator_json, limitations_json, lifecycle, finalized_at, lifecycle_changed_at, purged_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO artifacts (id, schema_version, intent, format, payload_html, assets, linked_hosts_json, title, request,
+       evidence_run_id, content_markdown, rendered_html, content_hash, generator_json, limitations_json, lifecycle,
+       finalized_at, lifecycle_changed_at, purged_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       row.id,
       row.schema_version,
       row.intent,
       row.format,
       row.payload_html,
+      row.assets,
+      row.linked_hosts_json,
       row.title,
       row.request,
       row.evidence_run_id,

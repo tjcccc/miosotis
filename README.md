@@ -5,7 +5,7 @@ miosotis is a local-first, AI-managed personal knowledge system. You express som
 **Status: `0.1.0`.** A text-only, single-user MVP that you use through an AI host:
 - Tell Claude Code "remember this", "review my notes on X", or "correct that note", and the miosotis Skill saves, organizes, retrieves, and writes cited reports.
 - The CLI keeps the library local, faithful, and traceable.
-- Reports can be Markdown or self-contained interactive HTML pages, always sandboxed and offline.
+- Reports can be Markdown or interactive HTML pages, always sandboxed. Pages are self-contained by default, or `linked` to pinned CDN/font URLs on request.
 - Attachments, URLs, PDFs, and spreadsheets are next (v0.2). See `docs/roadmap.md`.
 
 ## Requirements

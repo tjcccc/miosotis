@@ -3,7 +3,7 @@ name: miosotis
 description: Personal knowledge memory backed by the local `miosotis` CLI. Use when the user wants to save or remember a thought, note, or pasted article; find, review, or summarize what they saved; analyze or discuss their past notes and ideas; correct, ignore, or trash a saved note; regenerate or reopen a miosotis report; or when they mention miosotis, S-/A- IDs, or "my notes". Works in any language.
 compatibility: Requires the `miosotis` command (v0.1+) on PATH and a shell tool. Local library only.
 metadata:
-  version: "0.1.2"
+  version: "0.1.3"
 ---
 
 # miosotis
@@ -90,7 +90,10 @@ Offer one when the user asks for a visualization, an interactive demo, a 3D scen
 
 - `artifact create` with `"format": "html"`, a complete self-contained `html` page, **and** a Markdown `markdown` summary that cites `[@cN]`. The summary is shown under the page and keeps the artifact searchable and checkable.
 - **Self-contained, no network:** inline all CSS and JS, and embed images and fonts as `data:` URLs. Remote `src`/`href` for resources, CSS `url(http…)`, `@import`, and remote imports or import-map entries are rejected. The page runs in a sandbox with no network, storage, or parent access.
-- **Libraries:** prefer plain Canvas, SVG, or CSS. If a library such as three.js is really needed, embed it in the page: fetch the pinned file with your own tools, and build the request JSON with a script so the library never passes through your output. An import map of `data:` modules works. Tell the user a library makes the page large; they can ask for a lighter version instead.
+- **Libraries:** prefer plain Canvas, SVG, or CSS. If a library or web font is really needed, choose the asset mode:
+  - `"assets": "embedded"` (default): embed it in the page. Fetch the pinned file with your own tools, and build the request JSON with a script so the library never passes through your output. Tell the user the page gets large.
+  - `"assets": "linked"`: keep exact-version URLs from `cdnjs.cloudflare.com` (for example `three.js/r128`), `cdn.jsdelivr.net/npm/<pkg>@<version>`, `unpkg.com/<pkg>@<version>`, or Google Fonts. The page stays small but needs the network to display, and the viewer says so. Use it when the user asks for a CDN or linked version, or when the page is meant for sharing; mention the trade-off.
+  - Either way, the page can never send data (`fetch`/XHR are blocked), and other hosts, `latest`, or unpinned URLs are rejected.
 - Mark elements that show evidence-derived data with `data-cite="c3"` (handles from the same run). Use only numbers and facts from the evidence; count deterministically.
 - Pictures from the web are not supported until v0.2 (URL capture). Draw with code or use images the user provided as data.
 - Link it: `--derived-from <A-id>` when it visualizes an existing report. Reply with the ID and offer `miosotis artifact open <A-id>`.

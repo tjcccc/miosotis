@@ -47,6 +47,15 @@
         "html"
       ]
     },
+    "assets": {
+      "default": "embedded",
+      "description": "format=html only. embedded = fully self-contained (default, works offline). linked = may load exact-version URLs from cdnjs.cloudflare.com, cdn.jsdelivr.net/npm, unpkg.com, and Google Fonts; viewing then needs the network",
+      "type": "string",
+      "enum": [
+        "embedded",
+        "linked"
+      ]
+    },
     "markdown": {
       "type": "string",
       "minLength": 1,

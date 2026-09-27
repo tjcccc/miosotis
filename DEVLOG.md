@@ -2,6 +2,20 @@
 
 Cross-session development log. Newest first. Keep entries short: what shipped, what was verified, what's open.
 
+## 2026-09-27 — v0.1.3 — Linked assets for HTML artifacts
+
+- Add `"assets": "embedded" | "linked"` (and `artifact create --assets`). `linked` pages may load
+  exact-version https URLs from cdnjs, jsdelivr (`/npm/<pkg>@<version>`), unpkg, and Google Fonts;
+  plain http, `latest`, unpinned URLs, and other hosts are rejected before storage.
+- Freeze the validated hosts with the artifact (migration 0004). The viewer builds a per-page
+  sandbox policy that allows loading only from those origins, keeps `connect-src 'none'`, and shows a
+  banner listing them; standalone HTML exports carry the same notice.
+- Update the Skill (embedded by default; linked on request or for sharing, with the trade-off
+  stated), the contracts reference, and the security, data-model, CLI, and roadmap docs.
+- Pass `pnpm check`: 102 tests. In headless Chrome, the owner's standalone Onimusha journal page
+  (cdnjs three.js r128 plus Google Fonts) was rejected as embedded and rendered fully as linked, while
+  `fetch` to an allowed host and images from other hosts stayed blocked.
+
 ## 2026-09-27 — v0.1.2 — Rich HTML artifacts
 
 - Add `format: "html"` artifacts: a host-authored, self-contained page stored verbatim next to a

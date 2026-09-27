@@ -72,4 +72,31 @@ describe("rich HTML artifacts", () => {
       /immutable/,
     );
   });
+
+  it("stores linked pages with frozen hosts, a network notice, and a matching sandbox policy", () => {
+    const { base } = setup();
+    const linkedPage =
+      '<!doctype html><html><head><script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script></head><body data-cite="c1">x</body></html>';
+    expect(() => createArtifact(library.context, { ...base, format: "html", html: linkedPage })).toThrow(
+      /assets": "linked"/,
+    );
+    expect(() => createArtifact(library.context, { ...base, assets: "linked" })).toThrow(/only to format=html/);
+    const receipt = createArtifact(library.context, { ...base, format: "html", assets: "linked", html: linkedPage });
+    expect(receipt).toMatchObject({ assets: "linked", linked_hosts: ["cdnjs.cloudflare.com"] });
+    expect(artifactView(library.context, receipt.id)).toMatchObject({
+      assets: "linked",
+      linked_hosts: ["cdnjs.cloudflare.com"],
+    });
+    const opened = materializeArtifact(library.context, receipt.id);
+    expect(opened.notices.join(" ")).toMatch(/loads pinned resources from the network: cdnjs\.cloudflare\.com/);
+    const viewer = readFileSync(opened.path, "utf8");
+    expect(viewer).toContain("script-src &#39;unsafe-inline&#39; data: https://cdnjs.cloudflare.com");
+    expect(viewer).toContain("connect-src 'none'");
+    expect(() => library.context.db.run("UPDATE artifacts SET assets = 'embedded' WHERE id = ?", [receipt.id])).toThrow(
+      /immutable/,
+    );
+    expect(() =>
+      library.context.db.run("UPDATE artifacts SET linked_hosts_json = '[\"example.com\"]' WHERE id = ?", [receipt.id]),
+    ).toThrow(/immutable/);
+  });
 });

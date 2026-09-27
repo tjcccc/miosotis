@@ -24,27 +24,33 @@ export function registerArtifact(program: Command, runtime: CliRuntime): void {
     .requiredOption("--request-file <path>", "JSON file, or - for stdin")
     .option("--derived-from <A-id>", "record lineage to an earlier artifact (regeneration or follow-up)")
     .option("--supersedes", "mark --derived-from as replaced by the new artifact")
+    .option("--assets <mode>", "html pages: embedded (self-contained, default) | linked (pinned allowlisted URLs)")
     .option("--json", "print a JSON result envelope")
-    .action(async (options: JsonOption & { requestFile: string; derivedFrom?: string; supersedes?: boolean }) => {
-      await runCommand(runtime, options.json, async () => {
-        const body = (await readRequestFile(options.requestFile)) as ArtifactRequestInput;
-        const request: ArtifactRequestInput = {
-          ...body,
-          ...(options.derivedFrom === undefined ? {} : { derived_from: options.derivedFrom }),
-          ...(options.supersedes === true ? { supersedes: true } : {}),
-        };
-        const result = inLibrary(runtime, (context) => {
-          const receipt = createArtifact(context, request);
-          const materialized = materializeArtifact(context, receipt.id);
-          return { ...receipt, path: materialized.path };
+    .action(
+      async (
+        options: JsonOption & { requestFile: string; derivedFrom?: string; supersedes?: boolean; assets?: string },
+      ) => {
+        await runCommand(runtime, options.json, async () => {
+          const body = (await readRequestFile(options.requestFile)) as ArtifactRequestInput;
+          const request: ArtifactRequestInput = {
+            ...body,
+            ...(options.derivedFrom === undefined ? {} : { derived_from: options.derivedFrom }),
+            ...(options.supersedes === true ? { supersedes: true } : {}),
+            ...(options.assets === undefined ? {} : { assets: options.assets as ArtifactRequestInput["assets"] }),
+          };
+          const result = inLibrary(runtime, (context) => {
+            const receipt = createArtifact(context, request);
+            const materialized = materializeArtifact(context, receipt.id);
+            return { ...receipt, path: materialized.path };
+          });
+          return {
+            data: result,
+            human: `${result.replayed ? "Already stored" : "Stored"} ${result.id} · ${result.citations.length} citations\n${result.path}`,
+            warnings: result.warnings,
+          };
         });
-        return {
-          data: result,
-          human: `${result.replayed ? "Already stored" : "Stored"} ${result.id} · ${result.citations.length} citations\n${result.path}`,
-          warnings: result.warnings,
-        };
-      });
-    });
+      },
+    );
 
   artifact
     .command("get")

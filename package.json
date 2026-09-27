@@ -1,6 +1,6 @@
 {
   "name": "miosotis",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "private": true,
   "description": "Local-first, AI-managed personal knowledge system",
   "license": "GPL-3.0-only",
