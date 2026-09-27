@@ -181,6 +181,7 @@ Rich page variant (`"format": "html"`), for example `--derived-from A-REVIEW`:
 - `data-cite` handles are validated like `[@cN]`.
 - `markdown` is required and is what `export --format md` returns.
 
+- `files` (optional, at most 20; each file at most 100 MB) stores host-built outputs with the artifact: `[{"path": "/abs/deck.pptx", "role": "primary"}, {"path": "/abs/chart.png"}]` (`role` defaults to `supporting`). The receipt lists `files`, and PDF JavaScript or embedded Office objects produce a warning.
 - Only `[@cN]` handles from that evidence run are accepted. `[@cN]` inside code is ignored.
 - Raw HTML in the Markdown is displayed as text.
 - The response gives `data.id` (`A-…`), `data.path` (the HTML file), and `data.citations`.

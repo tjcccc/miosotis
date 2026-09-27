@@ -45,6 +45,13 @@ miosotis is a single-user, local tool with no server, no network access, and no 
 - `source get` exposes a read-only library path so a vision-capable host can look at images. Hosts must never write there.
 - Images in artifact source pages are embedded as `data:` URIs (up to 10 MB), so pages still load nothing from disk or the network.
 
+## Artifact output files
+
+- Host-built outputs are stored, never executed.
+- Rejected: macro-enabled Office formats (`.docm`, `.xlsm`, `.pptm`, …) and any Office zip containing `vbaProject.bin`; SVG with scripts, event handlers, or `javascript:` URLs; executables and scripts.
+- A PDF containing JavaScript, or an Office file with embedded objects, is stored with a warning.
+- The artifact page links the files for download; it doesn't embed or open them.
+
 ## Filesystem
 
 - Library paths resolve under `data_dir`; derived paths go through a containment check.

@@ -1,6 +1,6 @@
 {
   "name": "miosotis",
-  "version": "0.2.0-alpha.3",
+  "version": "0.2.0",
   "private": true,
   "description": "Local-first, AI-managed personal knowledge system",
   "license": "GPL-3.0-only",
@@ -10,7 +10,9 @@
   },
   "files": [
     "dist",
-    "skill"
+    "skill",
+    "docs/getting-started.md",
+    "config.example.toml"
   ],
   "engines": {
     "node": ">=24.0.0 <25"
@@ -24,7 +26,8 @@
     "test": "vitest run",
     "check": "pnpm typecheck && pnpm lint && pnpm build && pnpm test",
     "miosotis": "node dist/index.js",
-    "gen:schemas": "pnpm build && node scripts/gen-schemas.mjs"
+    "gen:schemas": "pnpm build && node scripts/gen-schemas.mjs",
+    "prepack": "npm run build"
   },
   "dependencies": {
     "commander": "^15.0.0",

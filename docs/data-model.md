@@ -36,6 +36,10 @@ The schema lives in `src/infra/db/migrations/`. Schema version is tracked with `
 - `evidence_items.derivation_id` pins a span of extracted text. `locator_json` `{"payload_sha256", "interpretation_id", …}` pins a whole payload such as an image, together with the interpretation in force when pinned. Its offsets are `0..1` and ignored.
 - File Sources cannot be corrected with text. To correct one, save the corrected file as a new Source, or correct the comment.
 
+## Artifact files (migration 0007)
+
+- `artifact_files` (immutable) attaches host-built outputs to an artifact: blob, filename, MIME type, and role (`primary`/`supporting`). They are part of the artifact's content hash. They are copied to `artifacts/<A>/files/` on open, and backed up with the other blobs.
+
 ## Tables and datasets (migration 0006)
 
 - A host extraction may carry structured `tables` (name, columns, rows, physical `header_row`/`first_row`, locator, notes), stored as a JSON blob referenced from the extraction (`content_json.tables_blob`). The summary lives in `content_json.tables`.

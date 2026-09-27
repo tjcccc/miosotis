@@ -3,7 +3,7 @@ name: miosotis
 description: Personal knowledge memory backed by the local `miosotis` CLI. Use when the user wants to save or remember a thought, note, or pasted article; find, review, or summarize what they saved; analyze or discuss their past notes and ideas; correct, ignore, or trash a saved note; regenerate or reopen a miosotis report; or when they mention miosotis, S-/A- IDs, or "my notes". Works in any language.
 compatibility: Requires the `miosotis` command (v0.1+) on PATH and a shell tool. Local library only.
 metadata:
-  version: "0.2.0-alpha.3"
+  version: "0.2.0"
 ---
 
 # miosotis
@@ -143,6 +143,14 @@ Offer one when the user asks for a visualization, an interactive demo, a 3D scen
 - Mark elements that show evidence-derived data with `data-cite="c3"` (handles from the same run). Use only numbers and facts from the evidence; count deterministically.
 - Pictures from the web are not supported until v0.2 (URL capture). Draw with code or use images the user provided as data.
 - Link it: `--derived-from <A-id>` when it visualizes an existing report. Reply with the ID and offer `miosotis artifact open <A-id>`.
+
+## Deliverable files (decks, PDFs, images)
+
+When you build a file for the user from their material, such as a slide deck, a PDF report, a chart image, or a spreadsheet, store it **with an artifact** instead of leaving it loose in a folder:
+- Add `"files": [{"path": "/abs/deck.pptx", "role": "primary"}, {"path": "/abs/chart.png"}]` to `artifact create`. Link it with `--derived-from` the analysis or review it came from.
+- The Markdown still carries the citable summary and the `[@cN]` citations, and any numbers come from frozen datasets.
+- Macro-enabled Office files (`.pptm`, `.xlsm`, …), SVG with scripts, and executables are rejected. Save the file as `.pptx`/`.xlsx`/`.pdf`/`.png` instead.
+- The files are frozen, backed up, and linked from the artifact page. `miosotis artifact export A-… --format bundle --output <dir>` hands over the whole folder.
 
 ## Govern
 

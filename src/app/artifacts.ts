@@ -1,21 +1,22 @@
 import { spawn } from "node:child_process";
-import { existsSync } from "node:fs";
-import { join } from "node:path";
+import { cpSync, existsSync } from "node:fs";
+import { dirname, join, resolve } from "node:path";
 import { ARTIFACT_SCHEMA_VERSION, ArtifactRequest, type ArtifactRequestInput } from "../contracts/artifact.js";
 import { parseContract } from "../contracts/validate.js";
 import { MiosotisError } from "../domain/errors.js";
 import { assertId, formatSourceRef, newId } from "../domain/ids.js";
 import { isImage } from "../infra/blobs/mime.js";
+import { checkArtifactFile } from "../infra/blobs/safety.js";
 import { type ArtifactRow, getArtifact, getCitations, getLinks, insertArtifact } from "../infra/db/repos/artifacts.js";
 import { recordAudit } from "../infra/db/repos/audit.js";
 import { getDerived } from "../infra/db/repos/derived.js";
 import { getEvidenceItems } from "../infra/db/repos/evidence.js";
-import { payloadsFor } from "../infra/db/repos/files.js";
+import { insertBlob, payloadsFor } from "../infra/db/repos/files.js";
 import { findOperation, insertOperation } from "../infra/db/repos/operations.js";
 import { getSource, getSourceVersion } from "../infra/db/repos/sources.js";
 import { digestOf, sha256Hex } from "../infra/digest.js";
 import { containedPath, ensureDir, writeFileAtomic } from "../infra/fs/files.js";
-import { extractCitations, renderMarkdown } from "../infra/render/markdown.js";
+import { escapeHtml, extractCitations, renderMarkdown } from "../infra/render/markdown.js";
 import {
   artifactBody,
   datasetPage,
@@ -25,6 +26,7 @@ import {
   statusBanner,
 } from "../infra/render/pages.js";
 import { inspectRichHtml, richContentSecurityPolicy, sandboxedDocument, sandboxFrame } from "../infra/render/rich.js";
+import { safeFilename } from "./capture.js";
 import { derivationText, describeLocator, spanLocator } from "./content.js";
 import { type AppContext, isoNow } from "./context.js";
 import { itemExcerpt, pinnedInterpretation, requireRun } from "./evidence.js";
@@ -47,6 +49,7 @@ export interface ArtifactReceipt {
   citations: string[];
   derived_from: string | null;
   supersedes: boolean;
+  files: { filename: string; mime: string; size: number; role: string }[];
   warnings: string[];
 }
 
@@ -56,7 +59,20 @@ export interface ArtifactReceipt {
  */
 export function createArtifact(context: AppContext, input: ArtifactRequestInput): ArtifactReceipt {
   const request = parseContract(ArtifactRequest, input, "artifact request");
-  const requestDigest = digestOf({ ...request, idempotency_key: undefined });
+  const outputs = request.files.map((file) => {
+    const filename = safeFilename(file.filename ?? file.path);
+    const blob = context.blobs.putFile(file.path, filename);
+    const verdict = checkArtifactFile(filename, blob.mime, context.blobs.read(blob.sha256));
+    if (!verdict.ok) {
+      throw new MiosotisError("validation", verdict.problems.join("; "), { problems: verdict.problems });
+    }
+    return { filename, role: file.role, blob, warnings: verdict.warnings };
+  });
+  const requestDigest = digestOf({
+    ...request,
+    idempotency_key: undefined,
+    files: outputs.map((file) => ({ sha256: file.blob.sha256, filename: file.filename, role: file.role })),
+  });
   return context.db.transaction(() => {
     if (request.idempotency_key !== undefined) {
       const previous = findOperation(context.db, "artifact", request.idempotency_key);
@@ -178,6 +194,7 @@ export function createArtifact(context: AppContext, input: ArtifactRequestInput)
         markdown: request.markdown,
         html: renderedHtml,
         page: request.html ?? null,
+        files: outputs.map((file) => ({ sha256: file.blob.sha256, filename: file.filename, role: file.role })),
         limitations: request.limitations,
         citations: handles,
       }),
@@ -202,6 +219,14 @@ export function createArtifact(context: AppContext, input: ArtifactRequestInput)
       finalized_at: at,
       lifecycle_changed_at: null,
       purged_at: null,
+    });
+    outputs.forEach((file, ordinal) => {
+      insertBlob(context.db, { sha256: file.blob.sha256, size: file.blob.size, mime: file.blob.mime, at });
+      context.db.run(
+        "INSERT INTO artifact_files (artifact_id, ordinal, blob_sha256, filename, mime, role) VALUES (?, ?, ?, ?, ?, ?)",
+        [id, ordinal, file.blob.sha256, file.filename, file.blob.mime, file.role],
+      );
+      warnings.push(...file.warnings);
     });
     for (const entry of cited) {
       context.db.run("INSERT INTO artifact_citations (artifact_id, run_id, handle) VALUES (?, ?, ?)", [
@@ -235,6 +260,12 @@ export function createArtifact(context: AppContext, input: ArtifactRequestInput)
       citations: handles,
       derived_from: parent?.id ?? null,
       supersedes: request.supersedes,
+      files: outputs.map((file) => ({
+        filename: file.filename,
+        mime: file.blob.mime,
+        size: file.blob.size,
+        role: file.role,
+      })),
       warnings,
     };
     insertOperation(context.db, {
@@ -460,6 +491,15 @@ export function artifactView(context: AppContext, id: string, options: { include
       derivatives: links.filter((l) => l.parent_id === artifact.id && l.kind === "derived_from").map((l) => l.child_id),
       superseded_by: links.filter((l) => l.parent_id === artifact.id && l.kind === "supersedes").map((l) => l.child_id),
     },
+    files: artifactFiles(context, artifact.id).map((file) => ({
+      filename: file.filename,
+      mime: file.mime,
+      role: file.role,
+      sha256: file.blob_sha256,
+      size: context.blobs.size(file.blob_sha256),
+      /** Read-only library path; `artifact open` also copies it to the artifact folder's files/. */
+      path: context.blobs.path(file.blob_sha256),
+    })),
     freshness: signals,
     notices: signals.map(describeSignal).map((notice) => notice.text),
     ...(options.includeContent === false ? {} : { markdown: artifact.content_markdown }),
@@ -543,7 +583,18 @@ export function materializeArtifact(context: AppContext, id: string): { path: st
   const directory = artifactDir(context, artifact.id);
   ensureDir(directory);
   const notices = [...freshness(context, artifact).map(describeSignal), ...assetNotices(artifact)];
-  writeFileAtomic(join(directory, "index.html"), viewerDocument(artifact, statusBanner(notices, isoNow(context))));
+  const files = artifactFiles(context, artifact.id);
+  if (files.length > 0) {
+    const filesDir = containedPath(directory, "files");
+    ensureDir(filesDir);
+    for (const file of files) {
+      writeFileAtomic(containedPath(directory, fileHref(file)), context.blobs.read(file.blob_sha256), 0o644);
+    }
+  }
+  writeFileAtomic(
+    join(directory, "index.html"),
+    viewerDocument(artifact, statusBanner(notices, isoNow(context)), files),
+  );
   const citations = getCitations(context.db, artifact.id);
   const byRevision = new Map<string, typeof citations>();
   const datasetPages = new Map<string, string[]>();
@@ -664,8 +715,24 @@ export function assetNotices(artifact: ArtifactRow): StatusNotice[] {
  * The viewable page: a trusted banner and the frozen summary body; for HTML artifacts, the stored page
  * runs above them inside a sandboxed iframe (opaque origin, no network).
  */
-function viewerDocument(artifact: ArtifactRow, banner: string): string {
+export function artifactFiles(context: AppContext, artifactId: string) {
+  return context.db.all<{ ordinal: number; blob_sha256: string; filename: string; mime: string; role: string }>(
+    "SELECT ordinal, blob_sha256, filename, mime, role FROM artifact_files WHERE artifact_id = ? ORDER BY ordinal",
+    [artifactId],
+  );
+}
+
+function fileHref(file: { ordinal: number; filename: string }): string {
+  return `files/${file.ordinal}-${file.filename}`;
+}
+
+function viewerDocument(
+  artifact: ArtifactRow,
+  banner: string,
+  files: { ordinal: number; filename: string; mime: string; role: string }[] = [],
+): string {
   const title = artifact.title ?? artifact.id;
+  banner = files.length === 0 ? banner : `${banner}\n${filesSection(files)}`;
   if (artifact.format === "html" && artifact.payload_html !== null) {
     const hosts = linkedHosts(artifact);
     const page = sandboxedDocument(artifact.payload_html, hosts);
@@ -748,4 +815,26 @@ function datasetOf(locatorJson: string | null): string | undefined {
   }
   const locator = JSON.parse(locatorJson) as { dataset_id?: string };
   return locator.dataset_id;
+}
+
+function filesSection(files: { ordinal: number; filename: string; mime: string; role: string }[]): string {
+  const items = files
+    .map(
+      (file) =>
+        `<li><a href="${escapeHtml(fileHref(file))}" download>${escapeHtml(file.filename)}</a> <small>(${escapeHtml(file.mime)}${file.role === "primary" ? ", primary" : ""})</small></li>`,
+    )
+    .join("");
+  return `<section class="status"><p><strong>Files</strong> stored with this artifact:</p><ul>${items}</ul></section>`;
+}
+
+/** Copies the complete viewable folder (page, source pages, files) to `output/<A-id>/`. No model call. */
+export function exportBundle(context: AppContext, id: string, output: string): { path: string } {
+  const { path } = materializeArtifact(context, id);
+  const artifact = requireArtifact(context, id);
+  const target = join(resolve(output), artifact.id);
+  if (existsSync(target)) {
+    throw new MiosotisError("conflict", `${target} already exists`);
+  }
+  cpSync(dirname(path), target, { recursive: true });
+  return { path: join(target, "index.html") };
 }

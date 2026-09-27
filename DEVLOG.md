@@ -2,6 +2,25 @@
 
 Cross-session development log. Newest first. Keep entries short: what shipped, what was verified, what's open.
 
+## 2026-09-27 — v0.2.0 — Everyday release
+
+- Add artifact files (migration 0007): `artifact create` accepts host-built outputs (decks, PDFs, images,
+  spreadsheets). They are frozen with the artifact and included in its hash, copied to its folder,
+  linked on its page, and backed up. `artifact export --format bundle` copies the whole folder.
+- Screen outputs:
+  - Rejected: macro-enabled Office formats and zips with `vbaProject.bin`, SVG with scripts or event
+    handlers, and executables.
+  - Stored with a warning: PDFs with JavaScript and Office files with embedded objects.
+- Make it shareable:
+  - `npm pack` produces a self-contained tarball (dist, both host Skills, the Getting Started guide,
+    the example config), with a `prepack` build; the package stays `private` so it can't be
+    published by accident.
+  - Add `docs/getting-started.md` (English and 中文).
+  - `doctor` checks the Node version and the host tools (`curl`, `python3`).
+- Skill: store deliverables with artifacts instead of loose files.
+- Pass `pnpm check`: 143 tests. The tarball installs into an isolated npm prefix with a fresh `HOME`
+  (`init --language`, both Skill installs including the Codex sandbox, a first save, `doctor` all green).
+
 ## 2026-09-27 — v0.2.0-alpha.3 — Deterministic tables
 
 - Hosts can submit structured `tables` with `extract apply`: columns, rows, physical row numbers, and

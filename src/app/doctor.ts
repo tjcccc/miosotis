@@ -48,6 +48,25 @@ export function runDoctor(options: { env?: NodeJS.ProcessEnv; version: string })
     status: compareVersions(sqlite, "3.51.3") >= 0 ? "ok" : "fail",
     detail: `linked SQLite ${sqlite} (WAL-reset fix requires >= 3.51.3)`,
   });
+  const nodeMajor = Number(process.versions.node.split(".")[0]);
+  checks.push({
+    name: "node",
+    status: nodeMajor === 24 ? "ok" : "warn",
+    detail:
+      nodeMajor === 24
+        ? `Node ${process.versions.node}`
+        : `Node ${process.versions.node}; miosotis is built and tested for Node 24 LTS`,
+  });
+  for (const tool of HOST_TOOLS) {
+    const found = onPath(tool.name, options.env ?? process.env);
+    checks.push({
+      name: `tool_${tool.name}`,
+      status: found ? "ok" : "warn",
+      detail: found
+        ? `${tool.name} available (${tool.purpose})`
+        : `${tool.name} not found; ${tool.purpose} will need another tool`,
+    });
+  }
   checks.push({
     name: "config",
     status: config.fileExists ? "ok" : "warn",
@@ -228,4 +247,19 @@ function listBlobFiles(root: string): string[] {
       ? readdirSync(directory).filter((name) => /^[0-9a-f]{64}$/.test(name))
       : [];
   });
+}
+
+/** Tools the AI host commonly uses for miosotis workflows (miosotis itself never runs them). */
+const HOST_TOOLS = [
+  { name: "curl", purpose: "saving web links" },
+  { name: "python3", purpose: "extracting spreadsheets and PDFs" },
+];
+
+function onPath(command: string, env: NodeJS.ProcessEnv): boolean {
+  const separator = process.platform === "win32" ? ";" : ":";
+  const extensions = process.platform === "win32" ? [".exe", ".cmd", ".bat", ""] : [""];
+  return (env.PATH ?? "")
+    .split(separator)
+    .filter((entry) => entry.length > 0)
+    .some((entry) => extensions.some((extension) => existsSync(join(entry, `${command}${extension}`))));
 }

@@ -40,6 +40,25 @@ export const ArtifactRequest = z
         'format=html only: a complete, self-contained HTML page. No network: inline all CSS/JS (including any library, e.g. as data: modules in an import map) and embed images and fonts as data: URLs. Mark cited elements with data-cite="c3".',
       ),
     limitations: z.array(z.string().trim().min(1).max(500)).max(20).default([]),
+    files: z
+      .array(
+        z
+          .object({
+            path: z
+              .string()
+              .min(1)
+              .max(4096)
+              .describe("Local path of a file you built (deck, PDF, image, spreadsheet)"),
+            filename: z.string().min(1).max(255).optional(),
+            role: z.enum(["primary", "supporting"]).default("supporting").describe("primary = the main deliverable"),
+          })
+          .strict(),
+      )
+      .max(20)
+      .default([])
+      .describe(
+        "Output files stored with the artifact (frozen, backed up, listed on its page); the Markdown stays the citable summary",
+      ),
     model: z.string().trim().min(1).max(120).nullable().optional(),
     derived_from: z.string().min(1).optional().describe("A-… this artifact regenerates or follows up"),
     supersedes: z.boolean().default(false).describe("Mark derived_from as replaced by this artifact"),

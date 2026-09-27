@@ -5,6 +5,7 @@ import {
   artifactView,
   createArtifact,
   exportArtifact,
+  exportBundle,
   listArtifacts,
   materializeArtifact,
   openInBrowser,
@@ -138,12 +139,20 @@ export function registerArtifact(program: Command, runtime: CliRuntime): void {
       "Export stored content: md (Markdown body or summary), html (standalone viewer; rich pages stay sandboxed), json",
     )
     .argument("<A-id>")
-    .option("--format <format>", "md | html | json", "md")
+    .option("--format <format>", "md | html | json | bundle (the whole folder, with files; needs --output)", "md")
     .option("--output <path>", "write to a file instead of stdout")
     .action(async (id: string, options: { format: string; output?: string }) => {
       await runCommand(runtime, false, () => {
-        if (!["md", "html", "json"].includes(options.format)) {
-          throw new MiosotisError("usage", "--format must be md, html, or json");
+        if (!["md", "html", "json", "bundle"].includes(options.format)) {
+          throw new MiosotisError("usage", "--format must be md, html, json, or bundle");
+        }
+        if (options.format === "bundle") {
+          if (options.output === undefined) {
+            throw new MiosotisError("usage", "--format bundle needs --output <folder>");
+          }
+          const output = options.output;
+          const bundle = inLibrary(runtime, (context) => exportBundle(context, id, output));
+          return { data: bundle, human: `Wrote ${bundle.path}` };
         }
         const exported = inLibrary(runtime, (context) =>
           exportArtifact(context, id, options.format as "md" | "html" | "json"),

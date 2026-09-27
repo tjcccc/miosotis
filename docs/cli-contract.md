@@ -43,7 +43,7 @@ One grammar serves people and AI hosts. The v0.4 HTTP service will expose the sa
 | Retrieval | `search [terms…] [--project] [--match all\|any] [--limit] [--cursor]` or `--request-file` |
 | Tables | `table query --request-file [--save]` (deterministic calculation over host-extracted tables), `table get <T-id>` |
 | Evidence | `evidence prepare --request-file [--from E-id]`, `evidence get <E-id>` |
-| Artifacts | `artifact create --request-file [--derived-from A-id] [--supersedes]` (`format`: `markdown`, or `html` with a sandboxed page; `--assets embedded|linked` for html), `artifact get\|list\|sources\|open [--no-launch]\|export [--format md\|html\|json] [--output]\|trash --confirm` |
+| Artifacts | `artifact create --request-file [--derived-from A-id] [--supersedes]` (`format`: `markdown`, or `html` with a sandboxed page; `--assets embedded|linked` for html), `artifact get\|list\|sources\|open [--no-launch]\|export [--format md\|html\|json\|bundle] [--output]\|trash --confirm` (`files` in the create request attaches host-built outputs) |
 | Backup | `backup create [--output]`, `backup verify <dir>`, `restore <dir> --data-dir <empty>` |
 | Intents | `review\|analysis\|discuss` → `capability_unavailable` in v0.1 (use the Skill) |
 

@@ -78,6 +78,41 @@
         "maxLength": 500
       }
     },
+    "files": {
+      "default": [],
+      "description": "Output files stored with the artifact (frozen, backed up, listed on its page); the Markdown stays the citable summary",
+      "maxItems": 20,
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4096,
+            "description": "Local path of a file you built (deck, PDF, image, spreadsheet)"
+          },
+          "filename": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 255
+          },
+          "role": {
+            "default": "supporting",
+            "description": "primary = the main deliverable",
+            "type": "string",
+            "enum": [
+              "primary",
+              "supporting"
+            ]
+          }
+        },
+        "required": [
+          "path"
+        ],
+        "additionalProperties": false
+      }
+    },
     "model": {
       "anyOf": [
         {

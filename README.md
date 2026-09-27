@@ -2,11 +2,14 @@
 
 miosotis is a local-first, AI-managed personal knowledge system. You express something; miosotis preserves it faithfully. Later you return with an intention (review, analysis, discussion), and it recovers the relevant evidence and produces durable, traceable artifacts.
 
-**Status: `0.1.0`.** A text-only, single-user MVP that you use through an AI host:
-- Tell Claude Code "remember this", "review my notes on X", or "correct that note", and the miosotis Skill saves, organizes, retrieves, and writes cited reports.
-- The CLI keeps the library local, faithful, and traceable.
-- Reports can be Markdown or interactive HTML pages, always sandboxed. Pages are self-contained by default, or `linked` to pinned CDN/font URLs on request.
-- Files can be saved with a note (`--attach`). Text and Markdown are extracted and searchable, and images are kept and interpreted by the AI host. PDFs, spreadsheets, HTML, and web links are read by the AI host with its own tools and recorded as host-extracted text with page/sheet locators; miosotis itself stays offline. See `docs/roadmap.md`.
+**Status: `0.2.0`.** The first release meant for everyday use through an AI agent (Claude Code or Codex):
+- Save thoughts, files, images, and web links; the agent reads PDFs and spreadsheets with its own tools, and miosotis records what they contain.
+- Ask questions, get reviews and analyses with citations down to the page or cell, and numbers calculated by miosotis itself.
+- Keep deliverables (decks, PDFs, interactive pages) as artifacts.
+- Correct, undo, back up, and restore.
+- Everything stays on your computer.
+
+New users: see **[docs/getting-started.md](docs/getting-started.md)** (English and 中文).
 
 ## Requirements
 
@@ -14,6 +17,10 @@ miosotis is a local-first, AI-managed personal knowledge system. You express som
 - pnpm 12
 
 ## Setup
+
+**Sharing with friends:** `npm pack` creates `miosotis-<version>.tgz`, which installs with `npm install -g ./miosotis-<version>.tgz`; see `docs/getting-started.md`. The package is marked `private`, so it can't be published to npm by accident.
+
+**From source (development):**
 
 ```bash
 pnpm install
