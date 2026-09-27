@@ -6,7 +6,7 @@ miosotis is a local-first, AI-managed personal knowledge system. You express som
 - Tell Claude Code "remember this", "review my notes on X", or "correct that note", and the miosotis Skill saves, organizes, retrieves, and writes cited reports.
 - The CLI keeps the library local, faithful, and traceable.
 - Reports can be Markdown or interactive HTML pages, always sandboxed. Pages are self-contained by default, or `linked` to pinned CDN/font URLs on request.
-- Attachments, URLs, PDFs, and spreadsheets are next (v0.2). See `docs/roadmap.md`.
+- Files can be saved with a note (`--attach`). Text and Markdown are extracted and searchable, and images are kept and interpreted by the AI host. PDFs, spreadsheets, and web pages come in the next 0.2 checkpoints. See `docs/roadmap.md`.
 
 ## Requirements
 
@@ -41,6 +41,8 @@ miosotis artifact export A-<id> --format md
 miosotis source correct S-<id> --expected-version 1 --request-file fix.json
 miosotis source ignore S-<id> --reason "wrong dataset"         # or include / trash --confirm / restore
 miosotis backup create --output ~/OneDrive/miosotis-backups     # verified snapshot; restore with `miosotis restore`
+miosotis undo                                                  # take back the last save (trash; restorable)
+miosotis prefs                                                 # reply language / timezone that AI hosts follow
 miosotis doctor
 ```
 

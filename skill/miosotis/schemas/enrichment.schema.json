@@ -163,6 +163,66 @@
       ],
       "additionalProperties": false
     },
+    "interpretations": {
+      "default": [],
+      "description": "Image interpretations by a vision-capable host, each bound to the exact image bytes",
+      "maxItems": 20,
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "payload_sha256": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$",
+            "description": "sha256 of the image payload you looked at (from source get)"
+          },
+          "description": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 2000,
+            "description": "What the image shows, factually"
+          },
+          "transcription": {
+            "description": "Visible text, transcribed verbatim; omit what you cannot read",
+            "type": "string",
+            "maxLength": 20000
+          },
+          "observations": {
+            "default": [],
+            "maxItems": 30,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "text": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 500
+                },
+                "legibility": {
+                  "type": "string",
+                  "enum": [
+                    "clear",
+                    "uncertain"
+                  ],
+                  "description": "uncertain = partly unreadable; never guess numbers"
+                }
+              },
+              "required": [
+                "text",
+                "legibility"
+              ],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": [
+          "payload_sha256",
+          "description"
+        ],
+        "additionalProperties": false
+      }
+    },
     "warnings": {
       "default": [],
       "maxItems": 10,

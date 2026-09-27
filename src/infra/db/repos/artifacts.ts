@@ -64,11 +64,14 @@ export interface CitationRow {
   version: number;
   start_offset: number;
   end_offset: number;
+  derivation_id: string | null;
+  locator_json: string | null;
 }
 
 export function getCitations(db: Database, artifactId: string): CitationRow[] {
   return db.all<CitationRow>(
-    `SELECT c.artifact_id, c.run_id, c.handle, i.source_id, i.version, i.start_offset, i.end_offset
+    `SELECT c.artifact_id, c.run_id, c.handle, i.source_id, i.version, i.start_offset, i.end_offset, i.derivation_id,
+       i.locator_json
      FROM artifact_citations c JOIN evidence_items i ON i.run_id = c.run_id AND i.handle = c.handle
      WHERE c.artifact_id = ?
      ORDER BY CAST(substr(c.handle, 2) AS INTEGER)`,

@@ -1,5 +1,5 @@
 import { spawn, spawnSync } from "node:child_process";
-import { existsSync, mkdtempSync, rmSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
@@ -72,5 +72,18 @@ describe("built CLI (subprocess)", () => {
     expect(again.data.results[0].change).toBe("removed");
     const missing = run(["source", "assign", "S-01M3G9NPX0XNVPV0NJTSNDH79K", "--project", "x", "--json"]);
     expect(missing.code).toBe(3);
+  });
+
+  it("saves a comment with attached files and finds the extracted text", () => {
+    const dir = join(root, "attach");
+    mkdirSync(dir);
+    writeFileSync(join(dir, "guide.md"), "# 攻略\n\n格挡反击\n");
+    const saved = JSON.parse(run(["save", "看这份攻略", "--attach", join(dir, "guide.md"), "--json"]).stdout);
+    expect(saved.data.sources.map((source: { role: string }) => source.role)).toEqual(["comment", "file"]);
+    expect(saved.data.sources[1].processing.extraction).toBe("complete");
+    const found = JSON.parse(run(["search", "格挡反击", "--json"]).stdout);
+    expect(found.data.hits[0].source_id).toBe(saved.data.sources[1].id);
+    const onlyFile = run(["--attach", join(dir, "guide.md"), "--json"]);
+    expect(JSON.parse(onlyFile.stdout).data.sources).toHaveLength(1);
   });
 });

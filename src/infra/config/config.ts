@@ -19,6 +19,7 @@ export interface LibraryPaths {
   database: string;
   artifactsDir: string;
   stagingDir: string;
+  blobsDir: string;
 }
 
 export interface MiosotisConfig {
@@ -26,6 +27,8 @@ export interface MiosotisConfig {
   library: LibraryPaths;
   backupDir: string | undefined;
   timezone: string;
+  /** Preferred reply language for AI hosts (BCP-47), or undefined to follow the user's own writing. */
+  language: string | undefined;
   /** Whether a config file exists on disk (false means defaults are in effect). */
   fileExists: boolean;
 }
@@ -34,7 +37,13 @@ const ConfigFileSchema = z
   .object({
     data_dir: z.string().min(1).optional(),
     user: z
-      .object({ timezone: z.string().min(1).optional() })
+      .object({
+        timezone: z.string().min(1).optional(),
+        language: z
+          .string()
+          .regex(/^[A-Za-z]{2,3}(-[A-Za-z0-9]{2,8})*$/, "a BCP-47 tag such as en, zh-CN, ja")
+          .optional(),
+      })
       .strict()
       .optional(),
     backup: z
@@ -56,6 +65,7 @@ export function libraryPaths(dataDir: string): LibraryPaths {
     database: join(dataDir, DATABASE_FILENAME),
     artifactsDir: join(dataDir, "artifacts"),
     stagingDir: join(dataDir, "staging"),
+    blobsDir: join(dataDir, "blobs"),
   };
 }
 
@@ -83,6 +93,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): MiosotisConfig
     library: libraryPaths(dataDir),
     backupDir: resolveConfiguredPath(file.backup?.dir, paths.home),
     timezone,
+    language: file.user?.language,
     fileExists,
   };
 }
@@ -117,7 +128,7 @@ export function assertTimezone(timezone: string): void {
   }
 }
 
-export function configTemplate(dataDir: string | undefined): string {
+export function configTemplate(dataDir: string | undefined, language?: string): string {
   const dataLine = dataDir === undefined ? '# data_dir = "~/.miosotis/data"' : `data_dir = ${JSON.stringify(dataDir)}`;
   return [
     "# miosotis configuration. All keys are optional.",
@@ -127,6 +138,9 @@ export function configTemplate(dataDir: string | undefined): string {
     dataLine,
     "",
     "[user]",
+    "# Preferred reply language for AI hosts (BCP-47, e.g. en, zh-CN, ja). Unset: follow the language you write in.",
+    "# Saved text is never translated.",
+    language === undefined ? '# language = "en"' : `language = ${JSON.stringify(language)}`,
     '# IANA timezone used to interpret dates such as "today". Defaults to the system timezone.',
     '# timezone = "Europe/Berlin"',
     "",

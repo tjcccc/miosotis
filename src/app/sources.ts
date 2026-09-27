@@ -2,10 +2,11 @@ import { MiosotisError } from "../domain/errors.js";
 import { formatSourceRef, parseSourceRef } from "../domain/ids.js";
 import { safeSlice } from "../domain/text.js";
 import { artifactsCitingSource } from "../infra/db/repos/artifacts.js";
+import { activeDerived, activeDerivedList } from "../infra/db/repos/derived.js";
+import { linksFor, payloadsFor } from "../infra/db/repos/files.js";
 import { projectsForSources } from "../infra/db/repos/projects.js";
 import {
   currentEnrichments,
-  getChunks,
   getProcessingStates,
   getSource,
   getSourceVersion,
@@ -14,6 +15,7 @@ import {
   type SourceRow,
   type SourceVersionRow,
 } from "../infra/db/repos/sources.js";
+import { readableText } from "./content.js";
 import type { AppContext } from "./context.js";
 import { resolveProject } from "./projects.js";
 
@@ -56,9 +58,10 @@ export function getSourceView(context: AppContext, reference: string, options: G
   const source = requireSource(context, ref.id);
   const versionNumber = ref.version ?? source.current_version;
   const version = requireVersion(context, source.id, versionNumber);
-  const chunks = getChunks(context.db, source.id, versionNumber);
+  const readable = readableText(context, source.id, versionNumber);
+  const chunks = readable.segments;
   const maxChars = options.maxChars ?? DEFAULT_MAX_CHARS;
-  const full = version.content_text;
+  const full = version.content_text === null ? null : readable.text;
   let start = 0;
   let end = full?.length ?? 0;
   if (options.chunk !== undefined) {
@@ -66,8 +69,8 @@ export function getSourceView(context: AppContext, reference: string, options: G
     if (chunk === undefined) {
       throw new MiosotisError("not_found", `No chunk ${options.chunk} in ${formatSourceRef(source.id, versionNumber)}`);
     }
-    start = chunk.start_offset;
-    end = chunk.end_offset;
+    start = chunk.start;
+    end = chunk.end;
   } else if (options.range !== undefined) {
     start = options.range.start;
     end = options.range.end;
@@ -91,9 +94,31 @@ export function getSourceView(context: AppContext, reference: string, options: G
     current_version: source.current_version,
     version: versionView(version, source.current_version),
     text,
+    /** `authored`: the Source's own text. `extracted`: derived from its file (see `extraction`). */
+    text_origin: readable.origin,
     text_range: full === null ? null : { start, end: start + (text?.length ?? 0) },
     truncated: full !== null && start + (text?.length ?? 0) < Math.min(end, full.length),
-    chunks: chunks.map((chunk) => ({ ordinal: chunk.ordinal, start: chunk.start_offset, end: chunk.end_offset })),
+    chunks: chunks.map((chunk) => ({ ordinal: chunk.ordinal, start: chunk.start, end: chunk.end })),
+    payloads: payloadsFor(context.db, source.id, versionNumber).map((payload) => ({
+      ordinal: payload.ordinal,
+      role: payload.role,
+      filename: payload.filename,
+      mime: payload.mime,
+      sha256: payload.blob_sha256,
+      size: context.blobs.has(payload.blob_sha256) ? context.blobs.size(payload.blob_sha256) : null,
+      /** Read-only path inside the library, for hosts that can view files (e.g. images). Never edit it. */
+      path: context.blobs.path(payload.blob_sha256),
+    })),
+    extraction: extractionView(context, source.id, versionNumber),
+    interpretations: activeDerivedList(context.db, source.id, versionNumber, "interpretation").map((row) => ({
+      derived: true,
+      derivation_id: row.id,
+      payload_sha256: row.payload_sha256,
+      model: row.model,
+      created_at: row.created_at,
+      content: row.content_json === null ? null : (JSON.parse(row.content_json) as unknown),
+    })),
+    links: linksFor(context.db, source.id),
     projects: projectsForSources(context.db, [source.id]).map((row) => ({
       id: row.project_id,
       slug: row.slug,
@@ -118,6 +143,20 @@ export function getSourceView(context: AppContext, reference: string, options: G
             content: enrichment.content_json === null ? null : (JSON.parse(enrichment.content_json) as unknown),
           },
   };
+}
+
+function extractionView(context: AppContext, sourceId: string, version: number) {
+  const row = activeDerived(context.db, sourceId, version, "extraction");
+  return row === undefined
+    ? null
+    : {
+        derived: true,
+        derivation_id: row.id,
+        method: row.method,
+        pipeline_version: row.pipeline_version,
+        status: row.status,
+        details: row.content_json === null ? null : (JSON.parse(row.content_json) as unknown),
+      };
 }
 
 function versionView(version: SourceVersionRow, current: number) {

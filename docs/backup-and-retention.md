@@ -9,6 +9,7 @@
 
 - `library.sqlite3`: a consistent online snapshot made with SQLite's backup API, converted to a single self-contained file (rollback-journal mode).
 - `manifest.json`: schema, creation time, miosotis version, library ID, schema version, SHA-256 and size of the database, and counts.
+- `blobs/sha256/…`: every stored file the database references (attachments, extracted text), copied and hash-verified. The manifest records the blob count and bytes.
 - **Excluded:** rendered `artifacts/` folders (a cache rebuilt by `artifact open`), `config.toml`, and any credentials.
 
 ## How a backup is made
@@ -22,7 +23,7 @@ An interrupted backup therefore never looks complete: it has no manifest or it k
 ## Restore
 
 - `miosotis restore <backup> --data-dir <new empty folder>`
-- It refuses non-empty targets and the live library. It verifies the hash and integrity, applies pending migrations, and switches the copy to WAL.
+- It refuses non-empty targets and the live library. It verifies the database hash and integrity, and verifies every blob's hash while copying (a mismatch aborts). It then applies pending migrations and switches the copy to WAL.
 - Afterwards, point `data_dir` (or `MIOSOTIS_HOME`) at the restored folder.
 
 ## Deletion levels (v0.1)

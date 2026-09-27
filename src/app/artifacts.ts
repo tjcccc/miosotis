@@ -5,10 +5,12 @@ import { ARTIFACT_SCHEMA_VERSION, ArtifactRequest, type ArtifactRequestInput } f
 import { parseContract } from "../contracts/validate.js";
 import { MiosotisError } from "../domain/errors.js";
 import { assertId, formatSourceRef, newId } from "../domain/ids.js";
-import { safeSlice } from "../domain/text.js";
+import { isImage } from "../infra/blobs/mime.js";
 import { type ArtifactRow, getArtifact, getCitations, getLinks, insertArtifact } from "../infra/db/repos/artifacts.js";
 import { recordAudit } from "../infra/db/repos/audit.js";
+import { getDerived } from "../infra/db/repos/derived.js";
 import { getEvidenceItems } from "../infra/db/repos/evidence.js";
+import { payloadsFor } from "../infra/db/repos/files.js";
 import { findOperation, insertOperation } from "../infra/db/repos/operations.js";
 import { getSource, getSourceVersion } from "../infra/db/repos/sources.js";
 import { digestOf, sha256Hex } from "../infra/digest.js";
@@ -16,10 +18,13 @@ import { containedPath, ensureDir, writeFileAtomic } from "../infra/fs/files.js"
 import { extractCitations, renderMarkdown } from "../infra/render/markdown.js";
 import { artifactBody, htmlDocument, type StatusNotice, sourcePage, statusBanner } from "../infra/render/pages.js";
 import { inspectRichHtml, richContentSecurityPolicy, sandboxedDocument, sandboxFrame } from "../infra/render/rich.js";
+import { derivationText } from "./content.js";
 import { type AppContext, isoNow } from "./context.js";
-import { requireRun } from "./evidence.js";
+import { itemExcerpt, pinnedInterpretation, requireRun } from "./evidence.js";
 
 const CITED_EXCERPT_LIMIT = 600;
+/** Images up to this size are embedded as data: URIs in source pages. */
+const EMBED_LIMIT = 10 * 1024 * 1024;
 
 export interface ArtifactReceipt {
   id: string;
@@ -89,15 +94,11 @@ export function createArtifact(context: AppContext, input: ArtifactRequestInput)
           { handle, source_id: item.source_id },
         );
       }
-      const text = getSourceVersion(context.db, item.source_id, item.version)?.content_text ?? null;
       return {
         handle,
         item,
         ref: formatSourceRef(item.source_id, item.version),
-        excerpt:
-          text === null
-            ? null
-            : safeSlice(text, item.start_offset, Math.min(item.end_offset, item.start_offset + CITED_EXCERPT_LIMIT)),
+        excerpt: itemExcerpt(context, item, CITED_EXCERPT_LIMIT),
       };
     });
     let parent: ArtifactRow | undefined;
@@ -218,6 +219,8 @@ export function requireArtifact(context: AppContext, id: string): ArtifactRow {
 
 export type FreshnessSignal =
   | { kind: "source_revised"; source_id: string; used_version: number; current_version: number }
+  | { kind: "extraction_replaced"; source_id: string; derivation_id: string; replaced_by: string }
+  | { kind: "interpretation_replaced"; source_id: string; derivation_id: string; replaced_by: string }
   | { kind: "source_unavailable"; source_id: string; retention: string; inclusion: string }
   | { kind: "new_material"; count: number; scope: string }
   | { kind: "superseded"; by: string }
@@ -258,6 +261,42 @@ export function freshness(context: AppContext, artifact: ArtifactRow): Freshness
         source_id: source.id,
         used_version: usedMax,
         current_version: source.current_version,
+      });
+    }
+  }
+  const replaced = new Set<string>();
+  for (const citation of citations) {
+    if (citation.derivation_id === null || replaced.has(citation.derivation_id)) {
+      continue;
+    }
+    const derivation = getDerived(context.db, citation.derivation_id);
+    if (derivation?.superseded_by != null) {
+      replaced.add(citation.derivation_id);
+      signals.push({
+        kind: "extraction_replaced",
+        source_id: citation.source_id,
+        derivation_id: citation.derivation_id,
+        replaced_by: derivation.superseded_by,
+      });
+    }
+  }
+  for (const citation of citations) {
+    if (citation.locator_json === null) {
+      continue;
+    }
+    const interpretationId = (JSON.parse(citation.locator_json) as { interpretation_id?: string | null })
+      .interpretation_id;
+    if (interpretationId == null || replaced.has(interpretationId)) {
+      continue;
+    }
+    const interpretation = getDerived(context.db, interpretationId);
+    if (interpretation?.superseded_by != null) {
+      replaced.add(interpretationId);
+      signals.push({
+        kind: "interpretation_replaced",
+        source_id: citation.source_id,
+        derivation_id: interpretationId,
+        replaced_by: interpretation.superseded_by,
       });
     }
   }
@@ -305,6 +344,16 @@ export function describeSignal(signal: FreshnessSignal): StatusNotice {
       };
     case "superseded":
       return { level: "info", text: `Superseded by ${signal.by}.` };
+    case "extraction_replaced":
+      return {
+        level: "info",
+        text: `The text extracted from ${signal.source_id} was re-extracted since this artifact was made; its pinned extraction is still shown.`,
+      };
+    case "interpretation_replaced":
+      return {
+        level: "info",
+        text: `An image in ${signal.source_id} was re-interpreted since this artifact was made; the pinned interpretation is still shown.`,
+      };
     case "trashed":
       return { level: "warn", text: "This artifact is in the trash." };
   }
@@ -441,18 +490,59 @@ export function materializeArtifact(context: AppContext, id: string): { path: st
     }
     const version = getSourceVersion(context.db, first.source_id, first.version);
     const source = getSource(context.db, first.source_id);
+    const textCitations = group.filter((citation) => citation.locator_json === null);
+    const derivationId = textCitations.find((citation) => citation.derivation_id !== null)?.derivation_id ?? null;
+    const derivation = derivationId === null ? undefined : getDerived(context.db, derivationId);
+    const text =
+      derivation !== undefined && derivation.content_blob !== null
+        ? derivationText(context, derivation)
+        : textCitations.length > 0
+          ? (version?.content_text ?? null)
+          : null;
+    const payloads = payloadsFor(context.db, first.source_id, first.version);
+    const images = group
+      .filter((citation) => citation.locator_json !== null)
+      .map((citation) => {
+        const locator = JSON.parse(citation.locator_json ?? "{}") as {
+          payload_sha256: string;
+          interpretation_id?: string | null;
+        };
+        const payload = payloads.find((row) => row.blob_sha256 === locator.payload_sha256);
+        const interpretation = pinnedInterpretation(context, first.source_id, first.version, locator);
+        const embeddable =
+          payload !== undefined && isImage(payload.mime) && context.blobs.size(payload.blob_sha256) <= EMBED_LIMIT;
+        return {
+          handle: citation.handle,
+          filename: payload?.filename ?? locator.payload_sha256,
+          mime: payload?.mime ?? "application/octet-stream",
+          dataUri: embeddable
+            ? `data:${payload.mime};base64,${context.blobs.read(payload.blob_sha256).toString("base64")}`
+            : null,
+          interpretation:
+            interpretation?.content_json == null
+              ? null
+              : (JSON.parse(interpretation.content_json) as { description: string }).description,
+        };
+      });
+    const filename = payloads[0]?.filename;
     writeFileAtomic(
       containedPath(sourcesDir, `${ref}.html`),
       sourcePage({
         ref,
         origin: source?.origin ?? "unknown",
         receivedAt: version?.received_at ?? "",
-        text: version?.content_text ?? null,
-        spans: group.map((citation) => ({
+        text,
+        ...(derivation !== undefined
+          ? { textLabel: `text extracted from ${filename ?? "file"} (${derivation.pipeline_version})` }
+          : text === null && images.length > 0
+            ? { textLabel: "original file" }
+            : {}),
+        spans: textCitations.map((citation) => ({
           handle: citation.handle,
           start: citation.start_offset,
           end: citation.end_offset,
         })),
+        images,
         backLink: "../index.html",
       }),
     );

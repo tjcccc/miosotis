@@ -2,7 +2,9 @@ import type { Command } from "commander";
 import { createBackup, restoreBackup, verifyBackup } from "../../app/backup.js";
 import { withContextAsync } from "../../app/context.js";
 import { installSkill, skillStatus, uninstallSkill } from "../../app/skill.js";
-import { type CliRuntime, type JsonOption, runCommand } from "../runtime.js";
+import { undoLastCapture } from "../../app/undo.js";
+import { loadConfig } from "../../infra/config/config.js";
+import { type CliRuntime, inLibrary, type JsonOption, runCommand } from "../runtime.js";
 
 export function registerBackup(program: Command, runtime: CliRuntime): void {
   const backup = program.command("backup").description("Consistent library backups (backup is not live sync)");
@@ -104,6 +106,46 @@ export function registerSkill(program: Command, runtime: CliRuntime): void {
             "\n",
           ),
         };
+      });
+    });
+}
+
+export function registerUndo(program: Command, runtime: CliRuntime): void {
+  program
+    .command("undo")
+    .description("Take back the most recent save (moves it to the trash; reversible with source restore)")
+    .option("--confirm", "confirm the action")
+    .option("--json", "print a JSON result envelope")
+    .action(async (options: JsonOption & { confirm?: boolean }) => {
+      await runCommand(runtime, options.json, () => {
+        const result = inLibrary(runtime, (context) => undoLastCapture(context, { confirm: options.confirm === true }));
+        const lines = [
+          `${result.changed ? "Undid" : "Nothing changed for"} the capture from ${result.captured_at}:`,
+          ...result.sources.map((source) => `  ${source.ref}  [${source.retention}]  ${source.preview}`),
+          result.note,
+        ];
+        return { data: result, human: lines.join("\n") };
+      });
+    });
+}
+
+export function registerPrefs(program: Command, runtime: CliRuntime): void {
+  program
+    .command("prefs")
+    .description("Show user preferences AI hosts should follow (reply language, timezone)")
+    .option("--json", "print a JSON result envelope")
+    .action(async (options: JsonOption) => {
+      await runCommand(runtime, options.json, () => {
+        const config = loadConfig(runtime.env);
+        const data = {
+          language: config.language ?? null,
+          language_rule:
+            config.language === undefined
+              ? "Reply in the language the user writes in."
+              : `Reply, and write titles, abstracts, and artifacts, in ${config.language} unless the user asks otherwise. Never translate saved text.`,
+          timezone: config.timezone,
+        };
+        return { data, human: `language: ${data.language ?? "(follow the user)"}\ntimezone: ${data.timezone}` };
       });
     });
 }

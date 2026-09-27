@@ -20,6 +20,7 @@ All requests go to `--request-file -` via a quoted heredoc. Exact schemas: `../s
 ```
 
 - `origin`: `user` (the user's own words), `imported` (pasted or quoted material), or `ai_saved` (AI output the user chose to keep).
+- `attachments` (optional, at most 20; each file at most 100 MB): `[{"path": "/abs/file.png", "filename": "shown name", "origin": "imported"|"user"}]`. `text` becomes optional and is the comment on the files. The receipt lists every Source with `role` (`comment`/`text`/`file`), `mime`, `sha256`, and `processing` (for example `extraction: complete|pending|unsupported|failed`, `interpretation: pending`).
 - `provenance` is optional and records only what is visible. It is not a reliability score.
 - Receipt: `data.sources[0].ref` (`S-…@v1`), `data.project`, `data.replayed`.
 
@@ -46,6 +47,7 @@ Copy `source_ref` exactly from `enrich prepare`.
 ```
 
 - Limits: `title` ≤120 chars, `abstract` ≤600 chars, `terms` ≤24, `entities` ≤24, `assertions` ≤10.
+- Images: add `"interpretations": [{"payload_sha256": "<files[].sha256>", "description": "…", "transcription": "legible text only", "observations": [{"text": "HP about 30%", "legibility": "uncertain"}]}]`. They are stored as model-derived interpretations of those exact bytes; the original image is never altered.
 - `holder` is one of `user`, `quoted_author`, `group`, `unknown`. `modality` is one of `explicit`, `tentative`, `quoted`, `inferred`.
 - Omit `coverage` when `enrich prepare` said `complete: true`. For long sources, copy `provided_chars` and `total_chars` from `prepare` into `coverage.read_chars` and `coverage.total_chars`.
 - Omit `model` unless you know it reliably.

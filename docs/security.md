@@ -30,6 +30,15 @@ miosotis is a single-user, local tool with no server, no network access, and no 
   - `linked`: three.js r128 from cdnjs and Google Fonts loaded, while `fetch` to the same allowed host and an image from another host were blocked.
 - The status banner and the cited summary live outside the frame, where the page cannot alter them.
 
+## Attached files
+
+- The CLI reads attachments from local paths given by the local user or host. The future HTTP service will accept uploaded bytes instead, never server-side paths.
+- Files are copied into the library, so moving or deleting the original later doesn't affect the saved copy. Each file is capped at 100 MB, and a capture at 20 files.
+- Filenames are display metadata only: miosotis keeps the base name, strips control characters, and caps the length. Storage paths are always the content hash.
+- Types are detected from magic bytes (text formats by extension). Nothing is executed. Text is decoded strictly as UTF-8, and anything else is marked `failed` rather than turned into garbled "evidence".
+- `source get` exposes a read-only library path so a vision-capable host can look at images. Hosts must never write there.
+- Images in artifact source pages are embedded as `data:` URIs (up to 10 MB), so pages still load nothing from disk or the network.
+
 ## Filesystem
 
 - Library paths resolve under `data_dir`; derived paths go through a containment check.

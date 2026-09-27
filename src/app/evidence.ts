@@ -5,6 +5,7 @@ import { assertId, formatSourceRef, newId, parseSourceRef } from "../domain/ids.
 import { safeSlice } from "../domain/text.js";
 import { assertTimezone } from "../infra/config/config.js";
 import { currentChangeSeq } from "../infra/db/repos/counters.js";
+import { activeDerivedList, getDerived } from "../infra/db/repos/derived.js";
 import {
   type EvidenceItemRow,
   getEvidenceItems,
@@ -12,8 +13,10 @@ import {
   insertEvidenceItem,
   insertEvidenceRun,
 } from "../infra/db/repos/evidence.js";
+import { payloadsFor } from "../infra/db/repos/files.js";
 import { findProjectById } from "../infra/db/repos/projects.js";
-import { currentEnrichments, getChunks, getSource, getSourceVersion } from "../infra/db/repos/sources.js";
+import { currentEnrichments, getSource, getSourceVersion } from "../infra/db/repos/sources.js";
+import { derivationText, readableText } from "./content.js";
 import { type AppContext, isoNow } from "./context.js";
 import { resolveProject } from "./projects.js";
 import { search } from "./search.js";
@@ -28,7 +31,51 @@ interface PendingItem {
   start: number;
   end: number;
   origin: EvidenceItemRow["origin"];
+  /** Extracted-text span of this derivation (null for authored text or whole payloads). */
+  derivationId: string | null;
+  /** Whole-payload item, e.g. an image: {"payload_sha256", "filename", "mime"}. */
+  locator: Record<string, unknown> | null;
   handle?: string;
+}
+
+/** One item per payload, for revisions without readable text (images). */
+function payloadItems(
+  context: AppContext,
+  sourceId: string,
+  version: number,
+  origin: PendingItem["origin"],
+): PendingItem[] {
+  const interpretations = activeDerivedList(context.db, sourceId, version, "interpretation");
+  return payloadsFor(context.db, sourceId, version).map((payload) => ({
+    source_id: sourceId,
+    version,
+    start: 0,
+    end: 1,
+    origin,
+    derivationId: null,
+    locator: {
+      payload_sha256: payload.blob_sha256,
+      filename: payload.filename,
+      mime: payload.mime,
+      // The interpretation in force when pinned, so later re-interpretation cannot change the excerpt.
+      interpretation_id: interpretations.find((row) => row.payload_sha256 === payload.blob_sha256)?.id ?? null,
+    },
+  }));
+}
+
+/** The interpretation an image item was pinned with (null when none existed at pin time). */
+export function pinnedInterpretation(
+  context: AppContext,
+  sourceId: string,
+  version: number,
+  locator: { payload_sha256: string; interpretation_id?: string | null },
+) {
+  if (locator.interpretation_id === undefined) {
+    return activeDerivedList(context.db, sourceId, version, "interpretation").find(
+      (row) => row.payload_sha256 === locator.payload_sha256,
+    );
+  }
+  return locator.interpretation_id === null ? undefined : getDerived(context.db, locator.interpretation_id);
 }
 
 /**
@@ -48,7 +95,7 @@ export function prepareEvidence(context: AppContext, input: EvidenceRequestInput
   const items: PendingItem[] = [];
   const seen = new Set<string>();
   const add = (item: PendingItem) => {
-    const key = `${item.source_id}@${item.version}:${item.start}-${item.end}`;
+    const key = `${item.source_id}@${item.version}:${item.derivationId ?? ""}:${JSON.stringify(item.locator)}:${item.start}-${item.end}`;
     if (!seen.has(key)) {
       seen.add(key);
       items.push(item);
@@ -62,6 +109,8 @@ export function prepareEvidence(context: AppContext, input: EvidenceRequestInput
         start: item.start_offset,
         end: item.end_offset,
         origin: "carried",
+        derivationId: item.derivation_id,
+        locator: item.locator_json === null ? null : (JSON.parse(item.locator_json) as Record<string, unknown>),
         handle: item.handle,
       });
     }
@@ -74,17 +123,26 @@ export function prepareEvidence(context: AppContext, input: EvidenceRequestInput
       ...(project === undefined ? {} : { project: project.id }),
     });
     for (const hit of result.hits) {
-      const chunks = getChunks(context.db, hit.source_id, Number(hit.ref.split("@v")[1]));
-      const matched = hit.matches.length > 0 ? hit.matches.map((match) => match.chunk_ordinal) : [0];
-      for (const ordinal of matched) {
-        const chunk = chunks.find((candidate) => candidate.ordinal === ordinal);
-        if (chunk !== undefined) {
+      const version = Number(hit.ref.split("@v")[1]);
+      const readable = readableText(context, hit.source_id, version);
+      if (readable.segments.length === 0) {
+        for (const item of payloadItems(context, hit.source_id, version, "search")) {
+          add(item);
+        }
+        continue;
+      }
+      const matched = hit.matches.filter((match) => match.matched_in !== "file").map((match) => match.chunk_ordinal);
+      for (const ordinal of matched.length > 0 ? matched : [0]) {
+        const segment = readable.segments.find((candidate) => candidate.ordinal === ordinal);
+        if (segment !== undefined) {
           add({
             source_id: hit.source_id,
-            version: chunk.version,
-            start: chunk.start_offset,
-            end: chunk.end_offset,
+            version,
+            start: segment.start,
+            end: segment.end,
             origin: "search",
+            derivationId: segment.derivationId,
+            locator: null,
           });
         }
       }
@@ -99,19 +157,42 @@ export function prepareEvidence(context: AppContext, input: EvidenceRequestInput
   });
   for (const pin of request.source_refs) {
     const { id, version } = eligibleRevision(context, pin.ref, project?.id);
-    const chunks = getChunks(context.db, id, version);
-    const selected = pin.chunk === undefined ? chunks : chunks.filter((chunk) => chunk.ordinal === pin.chunk);
+    const readable = readableText(context, id, version);
+    if (readable.segments.length === 0) {
+      if (pin.chunk !== undefined) {
+        throw new MiosotisError(
+          "not_found",
+          `${formatSourceRef(id, version)} has no text chunks (it is a file without extracted text)`,
+        );
+      }
+      for (const item of payloadItems(context, id, version, "source_ref")) {
+        add(item);
+      }
+      continue;
+    }
+    const selected =
+      pin.chunk === undefined
+        ? readable.segments
+        : readable.segments.filter((segment) => segment.ordinal === pin.chunk);
     if (selected.length === 0) {
       throw new MiosotisError("not_found", `No chunk ${pin.chunk} in ${formatSourceRef(id, version)}`);
     }
-    for (const chunk of selected) {
-      add({ source_id: id, version, start: chunk.start_offset, end: chunk.end_offset, origin: "source_ref" });
+    for (const segment of selected) {
+      add({
+        source_id: id,
+        version,
+        start: segment.start,
+        end: segment.end,
+        origin: "source_ref",
+        derivationId: segment.derivationId,
+        locator: null,
+      });
     }
   }
   for (const pin of request.quotes) {
     const { id, version } = eligibleRevision(context, pin.ref, project?.id);
-    const text = requireVersion(context, id, version).content_text ?? "";
-    const offsets = occurrences(text, pin.quote);
+    const readable = readableText(context, id, version);
+    const offsets = occurrences(readable.text, pin.quote);
     if (offsets.length === 0) {
       throw new MiosotisError("validation", `Quote not found verbatim in ${formatSourceRef(id, version)}`, {
         ref: pin.ref,
@@ -131,7 +212,15 @@ export function prepareEvidence(context: AppContext, input: EvidenceRequestInput
     if (start === undefined) {
       throw new MiosotisError("validation", `Quote has only ${offsets.length} occurrence(s)`);
     }
-    add({ source_id: id, version, start, end: start + pin.quote.length, origin: "quote_pin" });
+    add({
+      source_id: id,
+      version,
+      start,
+      end: start + pin.quote.length,
+      origin: "quote_pin",
+      derivationId: readable.derivationId,
+      locator: null,
+    });
   }
   const carried = items.filter((item) => item.handle !== undefined);
   const fresh = items.filter((item) => item.handle === undefined);
@@ -177,6 +266,8 @@ export function prepareEvidence(context: AppContext, input: EvidenceRequestInput
         start_offset: item.start,
         end_offset: item.end,
         origin: item.handle !== undefined && carried.includes(item) ? "carried" : item.origin,
+        derivation_id: item.derivationId,
+        locator_json: item.locator === null ? null : JSON.stringify(item.locator),
       });
     }
   });
@@ -214,11 +305,7 @@ export function evidenceView(context: AppContext, id: string) {
     citation_syntax: "Cite items in Markdown as [@c1]; only handles from this run are accepted.",
     items: items.map((item) => {
       const source = getSource(context.db, item.source_id);
-      const text = getSourceVersion(context.db, item.source_id, item.version)?.content_text ?? null;
-      const excerpt =
-        text === null
-          ? null
-          : safeSlice(text, item.start_offset, Math.min(item.end_offset, item.start_offset + EXCERPT_LIMIT));
+      const excerpt = itemExcerpt(context, item, EXCERPT_LIMIT);
       return {
         handle: item.handle,
         ref: formatSourceRef(item.source_id, item.version),
@@ -227,6 +314,9 @@ export function evidenceView(context: AppContext, id: string) {
         start: item.start_offset,
         end: item.end_offset,
         origin: item.origin,
+        kind: item.locator_json !== null ? "file" : item.derivation_id !== null ? "extracted_text" : "text",
+        derivation_id: item.derivation_id,
+        locator: item.locator_json === null ? null : (JSON.parse(item.locator_json) as unknown),
         title:
           item.version === source?.current_version
             ? titleOf(enrichments.get(item.source_id)?.content_json ?? null)
@@ -238,10 +328,46 @@ export function evidenceView(context: AppContext, id: string) {
           inclusion: source?.inclusion ?? null,
         },
         excerpt,
-        excerpt_truncated: excerpt !== null && excerpt.length < item.end_offset - item.start_offset,
+        excerpt_truncated:
+          item.locator_json === null && excerpt !== null && excerpt.length < item.end_offset - item.start_offset,
       };
     }),
   };
+}
+
+/**
+ * The text an evidence item stands for: a span of authored or extracted text, or for a whole payload
+ * (image) its filename plus any interpretation, clearly marked as model-derived.
+ */
+export function itemExcerpt(context: AppContext, item: EvidenceItemRow, limit: number): string | null {
+  if (item.locator_json !== null) {
+    const locator = JSON.parse(item.locator_json) as {
+      payload_sha256: string;
+      filename?: string | null;
+      mime?: string;
+      interpretation_id?: string | null;
+    };
+    const interpretation = pinnedInterpretation(context, item.source_id, item.version, locator);
+    const described =
+      interpretation?.content_json == null
+        ? "not interpreted yet"
+        : `interpretation (model-derived): ${(JSON.parse(interpretation.content_json) as { description: string }).description}`;
+    return safeSlice(
+      `[${locator.mime ?? "file"}] ${locator.filename ?? locator.payload_sha256} — ${described}`,
+      0,
+      limit,
+    );
+  }
+  let text: string | null;
+  if (item.derivation_id !== null) {
+    const derivation = getDerived(context.db, item.derivation_id);
+    text = derivation === undefined || derivation.content_blob === null ? null : derivationText(context, derivation);
+  } else {
+    text = getSourceVersion(context.db, item.source_id, item.version)?.content_text ?? null;
+  }
+  return text === null
+    ? null
+    : safeSlice(text, item.start_offset, Math.min(item.end_offset, item.start_offset + limit));
 }
 
 function eligibleRevision(context: AppContext, reference: string, projectId: string | undefined) {

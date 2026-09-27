@@ -7,12 +7,14 @@ export function registerInit(program: Command, runtime: CliRuntime): void {
     .command("init")
     .description("Create ~/.miosotis (or $MIOSOTIS_HOME), its config file, and the library. Safe to re-run.")
     .option("--data-dir <path>", "library folder to record in a new config file")
+    .option("--language <tag>", "preferred reply language for AI hosts (BCP-47, e.g. en, zh-CN)")
     .option("--json", "print a JSON result envelope")
-    .action(async (options: JsonOption & { dataDir?: string }) => {
+    .action(async (options: JsonOption & { dataDir?: string; language?: string }) => {
       await runCommand(runtime, options.json, () => {
         const result = initLibrary({
           env: runtime.env,
           ...(options.dataDir === undefined ? {} : { dataDir: options.dataDir }),
+          ...(options.language === undefined ? {} : { language: options.language }),
         });
         const lines = [
           result.library_created ? "Initialized a new miosotis library." : "miosotis library already initialized.",

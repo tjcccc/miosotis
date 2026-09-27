@@ -9,14 +9,16 @@ import { parseContract } from "../contracts/validate.js";
 import { MiosotisError } from "../domain/errors.js";
 import { assertId, formatSourceRef, isId, newId, parseSourceRef } from "../domain/ids.js";
 import { safeSlice } from "../domain/text.js";
+import { isImage } from "../infra/blobs/mime.js";
 import { recordAudit } from "../infra/db/repos/audit.js";
 import { nextChangeSeq } from "../infra/db/repos/counters.js";
-import { activeDerived, insertDerivedRecord, supersedeDerived } from "../infra/db/repos/derived.js";
+import { activeDerived, activeDerivedList, insertDerivedRecord, supersedeDerived } from "../infra/db/repos/derived.js";
+import { payloadsFor } from "../infra/db/repos/files.js";
 import { findOperation, insertOperation } from "../infra/db/repos/operations.js";
 import { assignMembership, findProjectById, listProjects, projectsForSources } from "../infra/db/repos/projects.js";
-import { getChunks, setProcessingState } from "../infra/db/repos/sources.js";
+import { setProcessingState } from "../infra/db/repos/sources.js";
 import { digestOf } from "../infra/digest.js";
-import { reindexSource } from "../infra/search/indexer.js";
+import { readableText, reindex } from "./content.js";
 import { type AppContext, isoNow } from "./context.js";
 import { requireSource, requireVersion } from "./sources.js";
 
@@ -38,8 +40,10 @@ export function pendingEnrichment(context: AppContext, options: { limit?: number
     state: string;
     attempts: number;
     last_error: string | null;
+    filename: string | null;
   }>(
-    `SELECT s.id, s.current_version, s.created_at, v.char_length, ps.state, ps.attempts, ps.last_error
+    `SELECT s.id, s.current_version, s.created_at, v.char_length, ps.state, ps.attempts, ps.last_error,
+       (SELECT p.filename FROM version_payloads p WHERE p.source_id = s.id AND p.version = s.current_version AND p.ordinal = 0) AS filename
      FROM visible_sources s
      JOIN source_versions v ON v.source_id = s.id AND v.version = s.current_version
      JOIN processing_states ps ON ps.source_id = s.id AND ps.version = s.current_version
@@ -58,6 +62,7 @@ export function pendingEnrichment(context: AppContext, options: { limit?: number
       ref: formatSourceRef(row.id, row.current_version),
       created_at: row.created_at,
       char_length: row.char_length,
+      filename: row.filename,
       state: row.state,
       attempts: row.attempts,
       last_error: row.last_error,
@@ -83,7 +88,9 @@ export function prepareEnrichment(context: AppContext, reference: string) {
   if (version.content_text === null || version.content_digest === null) {
     throw new MiosotisError("validation", "This revision's content was purged");
   }
-  const text = safeSlice(version.content_text, 0, ENRICH_MAX_CHARS);
+  const readable = readableText(context, source.id, versionNumber);
+  const text = safeSlice(readable.text, 0, ENRICH_MAX_CHARS);
+  const payloads = payloadsFor(context.db, source.id, versionNumber);
   return {
     source_ref: { id: source.id, version: versionNumber, input_digest: version.content_digest },
     ref: formatSourceRef(source.id, versionNumber),
@@ -91,10 +98,20 @@ export function prepareEnrichment(context: AppContext, reference: string) {
     provenance: version.provenance_json === null ? null : (JSON.parse(version.provenance_json) as unknown),
     received_at: version.received_at,
     timezone: version.timezone,
-    total_chars: version.content_text.length,
+    kind: source.kind,
+    text_origin: readable.origin,
+    total_chars: readable.text.length,
     provided_chars: text.length,
-    complete: text.length === version.content_text.length,
-    chunk_count: getChunks(context.db, source.id, versionNumber).length,
+    complete: text.length === readable.text.length,
+    chunk_count: readable.segments.length,
+    files: payloads.map((payload) => ({
+      sha256: payload.blob_sha256,
+      filename: payload.filename,
+      mime: payload.mime,
+      /** Read-only; look at images here and submit `interpretations`. */
+      path: context.blobs.path(payload.blob_sha256),
+      needs_interpretation: isImage(payload.mime),
+    })),
     current_projects: projectsForSources(context.db, [source.id]).map((row) => ({
       id: row.project_id,
       slug: row.slug,
@@ -108,6 +125,7 @@ export function prepareEnrichment(context: AppContext, reference: string) {
       "Add retrieval terms in the languages the user is likely to search in, including translations.",
       "Suggest only existing project IDs; leave suggestions empty when unsure.",
       "Report coverage honestly when you read only part of the text.",
+      "For images: look at the file and add `interpretations` bound to its sha256; transcribe only what is legible and mark uncertain readings.",
     ],
   };
 }
@@ -168,11 +186,22 @@ export function applyEnrichment(context: AppContext, input: EnrichmentRequestInp
       }
     }
     // Without a reported coverage, assume the host read only what `prepare` provided.
+    const readableLength = readableText(context, sourceId, version.version).text.length;
+    // Without a reported coverage, assume the host read only what `prepare` provided.
     const coverage = request.coverage ?? {
-      read_chars: Math.min(version.char_length, ENRICH_MAX_CHARS),
-      total_chars: version.char_length,
+      read_chars: Math.min(readableLength, ENRICH_MAX_CHARS),
+      total_chars: readableLength,
     };
-    const status = coverage.read_chars < version.char_length ? "partial" : "complete";
+    const status = coverage.read_chars < readableLength ? "partial" : "complete";
+    const imagePayloads = payloadsFor(context.db, sourceId, version.version).filter((payload) => isImage(payload.mime));
+    for (const interpretation of request.interpretations) {
+      if (!imagePayloads.some((payload) => payload.blob_sha256 === interpretation.payload_sha256)) {
+        throw new MiosotisError(
+          "validation",
+          `interpretation names ${interpretation.payload_sha256}, which is not an image of this revision`,
+        );
+      }
+    }
     const at = isoNow(context);
     const derivationId = newId("derivation", context.now().getTime());
     const content = {
@@ -201,6 +230,8 @@ export function applyEnrichment(context: AppContext, input: EnrichmentRequestInp
       superseded_by: null,
       created_at: at,
       purged_at: null,
+      content_blob: null,
+      payload_sha256: null,
     });
     supersedeDerived(context.db, sourceId, version.version, "enrichment", derivationId);
     setProcessingState(context.db, {
@@ -212,6 +243,54 @@ export function applyEnrichment(context: AppContext, input: EnrichmentRequestInp
       countAttempt: true,
       at,
     });
+    for (const interpretation of request.interpretations) {
+      const interpretationId = newId("derivation", context.now().getTime());
+      insertDerivedRecord(context.db, {
+        id: interpretationId,
+        source_id: sourceId,
+        version: version.version,
+        kind: "interpretation",
+        input_digest: `sha256:${interpretation.payload_sha256}`,
+        method: "host_agent",
+        model: request.model ?? null,
+        schema_version: ENRICHMENT_SCHEMA_VERSION,
+        pipeline_version: ENRICHMENT_PIPELINE_VERSION,
+        status: "complete",
+        content_json: JSON.stringify({
+          description: interpretation.description,
+          transcription: interpretation.transcription ?? null,
+          observations: interpretation.observations,
+        }),
+        superseded_by: null,
+        created_at: at,
+        purged_at: null,
+        content_blob: null,
+        payload_sha256: interpretation.payload_sha256,
+      });
+      supersedeDerived(
+        context.db,
+        sourceId,
+        version.version,
+        "interpretation",
+        interpretationId,
+        interpretation.payload_sha256,
+      );
+    }
+    if (imagePayloads.length > 0) {
+      const interpreted = new Set(
+        activeDerivedList(context.db, sourceId, version.version, "interpretation").map((row) => row.payload_sha256),
+      );
+      const done = imagePayloads.every((payload) => interpreted.has(payload.blob_sha256));
+      setProcessingState(context.db, {
+        sourceId,
+        version: version.version,
+        stage: "interpretation",
+        state: done ? "complete" : "pending",
+        error: null,
+        countAttempt: request.interpretations.length > 0,
+        at,
+      });
+    }
     const inferred: string[] = [];
     for (const projectId of projectIds) {
       const change = assignMembership(context.db, {
@@ -228,17 +307,7 @@ export function applyEnrichment(context: AppContext, input: EnrichmentRequestInp
         warnings.push(`project suggestion ${projectId} ignored: the user removed this source from that project`);
       }
     }
-    reindexSource(context.db, {
-      sourceId,
-      version: version.version,
-      text: version.content_text,
-      chunks: getChunks(context.db, sourceId, version.version).map((chunk) => ({
-        ordinal: chunk.ordinal,
-        start: chunk.start_offset,
-        end: chunk.end_offset,
-      })),
-      enrichmentText: enrichmentSearchText(content),
-    });
+    reindex(context, sourceId);
     // Newly matchable material counts as a change for freshness checks.
     context.db.run("UPDATE sources SET changed_seq = ?, updated_at = ? WHERE id = ?", [
       nextChangeSeq(context.db),
@@ -264,17 +333,6 @@ export function applyEnrichment(context: AppContext, input: EnrichmentRequestInp
     recordAudit(context.db, { at, actor: "agent", operation: "source.enrich", subjectIds: [sourceId, derivationId] });
     return receipt;
   });
-}
-
-export function enrichmentSearchText(content: {
-  title: string | null;
-  abstract: string | null;
-  terms: string[];
-  entities: { name: string }[];
-}): string {
-  return [content.title, content.abstract, ...content.terms, ...content.entities.map((entity) => entity.name)]
-    .filter((part): part is string => typeof part === "string" && part.length > 0)
-    .join("\n");
 }
 
 /** A malformed result leaves the Source saved and marks enrichment failed (retryable). */

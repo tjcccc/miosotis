@@ -19,12 +19,23 @@ export interface InitResult {
 }
 
 /** Creates the home folder, config file, and library. Safe to run again. */
-export function initLibrary(options: { env?: NodeJS.ProcessEnv; dataDir?: string } = {}): InitResult {
+export function initLibrary(
+  options: { env?: NodeJS.ProcessEnv; dataDir?: string; language?: string } = {},
+): InitResult {
   const home = resolveHome(options.env);
   ensureDir(home.home);
   const requestedDataDir = resolveConfiguredPath(options.dataDir, process.cwd());
   let configCreated = false;
   if (existsSync(home.configFile)) {
+    if (options.language !== undefined) {
+      const existing = parse(readFileSync(home.configFile, "utf8")) as { user?: { language?: unknown } };
+      if (existing.user?.language !== options.language) {
+        throw new MiosotisError(
+          "conflict",
+          `${home.configFile} already exists; set language = ${JSON.stringify(options.language)} under [user] there instead.`,
+        );
+      }
+    }
     if (requestedDataDir !== undefined) {
       const existing = parse(readFileSync(home.configFile, "utf8")) as { data_dir?: unknown };
       const configured =
@@ -38,7 +49,10 @@ export function initLibrary(options: { env?: NodeJS.ProcessEnv; dataDir?: string
       }
     }
   } else {
-    writeFileAtomic(home.configFile, configTemplate(requestedDataDir));
+    if (options.language !== undefined && !/^[A-Za-z]{2,3}(-[A-Za-z0-9]{2,8})*$/.test(options.language)) {
+      throw new MiosotisError("validation", `Not a BCP-47 language tag: ${options.language}`);
+    }
+    writeFileAtomic(home.configFile, configTemplate(requestedDataDir, options.language));
     configCreated = true;
   }
   const config = loadConfig(options.env);
@@ -46,6 +60,7 @@ export function initLibrary(options: { env?: NodeJS.ProcessEnv; dataDir?: string
   ensureDir(library.dataDir);
   ensureDir(library.artifactsDir);
   ensureDir(library.stagingDir);
+  ensureDir(library.blobsDir);
   const libraryCreated = !existsSync(library.database);
   const db = new Database(library.database, { create: true });
   try {

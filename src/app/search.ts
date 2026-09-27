@@ -3,9 +3,12 @@ import { parseContract } from "../contracts/validate.js";
 import { MiosotisError } from "../domain/errors.js";
 import { formatSourceRef } from "../domain/ids.js";
 import { foldForSearch, safeSlice } from "../domain/text.js";
+import { activeDerivedList } from "../infra/db/repos/derived.js";
+import { payloadsFor } from "../infra/db/repos/files.js";
 import { projectsForSources } from "../infra/db/repos/projects.js";
-import { currentEnrichments, getChunks, getSourceVersion } from "../infra/db/repos/sources.js";
+import { currentEnrichments } from "../infra/db/repos/sources.js";
 import { type QueryToken, runSearch, tokenize } from "../infra/search/query.js";
+import { readableText } from "./content.js";
 import type { AppContext } from "./context.js";
 import { resolveProject } from "./projects.js";
 import { parseCursor, titleOf } from "./sources.js";
@@ -16,9 +19,14 @@ const EXCERPT_BEFORE = 80;
 const EXCERPT_AFTER = 220;
 
 export interface SearchMatch {
-  /** `text`: a term occurs in this span. `enrichment`: only AI-derived terms matched; this is the opening. */
-  matched_in: "text" | "enrichment";
+  /**
+   * `text`/`extracted`: a term occurs in this span of authored/extracted text. `enrichment`: only
+   * AI-derived terms matched; this is the opening. `file`: no readable text (e.g. an image).
+   */
+  matched_in: "text" | "extracted" | "enrichment" | "file";
   chunk_ordinal: number;
+  /** Set for spans of extracted text. */
+  derivation_id: string | null;
   start: number;
   end: number;
   excerpt: string;
@@ -96,52 +104,78 @@ export function search(context: AppContext, input: SearchRequestInput) {
 }
 
 function findMatches(context: AppContext, sourceId: string, version: number, tokens: QueryToken[]): SearchMatch[] {
-  const text = getSourceVersion(context.db, sourceId, version)?.content_text;
-  if (text === null || text === undefined) {
-    return [];
+  const readable = readableText(context, sourceId, version);
+  if (readable.segments.length === 0) {
+    return fileFallback(context, sourceId, version);
   }
+  const text = readable.text;
+  const matchedIn = readable.origin === "extracted" ? "extracted" : "text";
   const textTokens = tokens.filter((token) => token.mode !== "id").map((token) => token.folded);
-  const chunks = getChunks(context.db, sourceId, version);
-  const scored = chunks
-    .map((chunk) => {
-      const original = text.slice(chunk.start_offset, chunk.end_offset);
+  const scored = readable.segments
+    .map((segment) => {
+      const original = text.slice(segment.start, segment.end);
       const folded = foldForSearch(original);
       const positions = textTokens.map((token) => folded.indexOf(token)).filter((position) => position >= 0);
-      return { chunk, original, folded, positions };
+      return { segment, original, folded, positions };
     })
     .filter((entry) => entry.positions.length > 0 || textTokens.length === 0)
-    .sort((a, b) => b.positions.length - a.positions.length || a.chunk.ordinal - b.chunk.ordinal)
+    .sort((a, b) => b.positions.length - a.positions.length || a.segment.ordinal - b.segment.ordinal)
     .slice(0, MAX_MATCHES_PER_SOURCE);
-  const first = chunks[0];
+  const first = readable.segments[0];
   if (scored.length === 0 && first !== undefined) {
-    const excerpt = safeSlice(
-      text,
-      first.start_offset,
-      Math.min(first.end_offset, first.start_offset + EXCERPT_BEFORE + EXCERPT_AFTER),
-    );
+    const excerpt = safeSlice(text, first.start, Math.min(first.end, first.start + EXCERPT_BEFORE + EXCERPT_AFTER));
     return [
       {
         matched_in: "enrichment",
         chunk_ordinal: first.ordinal,
-        start: first.start_offset,
-        end: first.start_offset + excerpt.length,
+        derivation_id: first.derivationId,
+        start: first.start,
+        end: first.start + excerpt.length,
         excerpt,
       },
     ];
   }
-  return scored.map(({ chunk, original, folded, positions }) => {
-    const first = positions.length > 0 ? Math.min(...positions) : 0;
+  return scored.map(({ segment, original, folded, positions }) => {
+    const firstHit = positions.length > 0 ? Math.min(...positions) : 0;
     const ratio = folded.length === 0 ? 1 : original.length / folded.length;
-    const center = Math.round(first * ratio);
+    const center = Math.round(firstHit * ratio);
     const localStart = Math.max(0, center - EXCERPT_BEFORE);
     const localEnd = Math.min(original.length, center + EXCERPT_AFTER);
     const excerpt = safeSlice(original, localStart, localEnd);
     return {
-      matched_in: "text" as const,
-      chunk_ordinal: chunk.ordinal,
-      start: chunk.start_offset + localStart,
-      end: chunk.start_offset + localStart + excerpt.length,
+      matched_in: matchedIn,
+      chunk_ordinal: segment.ordinal,
+      derivation_id: segment.derivationId,
+      start: segment.start + localStart,
+      end: segment.start + localStart + excerpt.length,
       excerpt,
     };
   });
+}
+
+/** Files without readable text (e.g. images): show the filename and any interpretation, marked. */
+function fileFallback(context: AppContext, sourceId: string, version: number): SearchMatch[] {
+  const payload = payloadsFor(context.db, sourceId, version)[0];
+  if (payload === undefined) {
+    return [];
+  }
+  const interpretation = activeDerivedList(context.db, sourceId, version, "interpretation")[0];
+  const description =
+    interpretation?.content_json === null || interpretation === undefined
+      ? "no interpretation yet"
+      : `interpretation (model-derived): ${(JSON.parse(interpretation.content_json) as { description: string }).description}`;
+  return [
+    {
+      matched_in: "file",
+      chunk_ordinal: 0,
+      derivation_id: null,
+      start: 0,
+      end: 0,
+      excerpt: safeSlice(
+        `[${payload.mime}] ${payload.filename ?? "file"} — ${description}`,
+        0,
+        EXCERPT_BEFORE + EXCERPT_AFTER,
+      ),
+    },
+  ];
 }

@@ -32,9 +32,10 @@ One grammar serves people and AI hosts. The v0.4 HTTP service will expose the sa
 
 | Area | Commands |
 |---|---|
-| Setup | `init [--data-dir]`, `doctor`, `skill install\|uninstall\|status --host claude-code\|codex` |
-| Capture | `miosotis "text"` (shortcut), `save [text…] [--stdin] [--request-file] [--project] [--origin] [--idempotency-key]` |
+| Setup | `init [--data-dir] [--language <bcp47>]`, `doctor`, `prefs` (reply language, timezone for hosts), `skill install\|uninstall\|status --host claude-code\|codex` |
+| Capture | `miosotis "text"` (shortcut), `save [text…] [--stdin] [--request-file] [--project] [--origin] [--idempotency-key] [--attach <path>]…` |
 | Sources | `source get <ref> [--range a:b] [--chunk n] [--max-chars n]`, `source list [--project] [--since] [--until] [--limit] [--cursor] [--all]`, `source history <S-id>` |
+| Undo | `undo [--confirm]`: moves the most recent capture group (comment and files) to the trash; reversible with `source restore` |
 | Governance | `source correct <S-id> --expected-version N --request-file`, `source assign <S-id…> --project <slug>`, `source unassign <S-id…> --project <slug>`, `source ignore <S-id> --reason`, `source include`, `source trash --confirm`, `source restore` |
 | Projects | `project list`, `project create <slug> [--name] [--description]` |
 | Enrichment | `enrich pending [--limit]`, `enrich prepare <ref>`, `enrich apply --request-file` |
@@ -45,6 +46,8 @@ One grammar serves people and AI hosts. The v0.4 HTTP service will expose the sa
 | Intents | `review\|analysis\|discuss` → `capability_unavailable` in v0.1 (use the Skill) |
 
 `source assign` has the same meaning as `save --project`: membership is explicit, and a new slug creates the project. `source unassign` removes membership and records an exclusion so AI suggestions cannot re-add it; the project must already exist. Both take several Sources (all-or-nothing), are idempotent (`already_explicit`, `not_member`), and reject unknown or trashed Sources.
+
+A saved text ending in `?`/`？` still saves (the CLI has no model), but the result carries a warning pointing to `search` and `undo`.
 
 A free-text save that is a single word close to a command name (for example `serach`) is rejected as a probable typo. Use `miosotis save <word>` to save it anyway.
 

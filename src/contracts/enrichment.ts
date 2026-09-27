@@ -59,6 +59,40 @@ export const EnrichmentRequest = z
       .strict()
       .optional()
       .describe("How much of the text was actually read"),
+    interpretations: z
+      .array(
+        z
+          .object({
+            payload_sha256: z
+              .string()
+              .regex(/^[0-9a-f]{64}$/)
+              .describe("sha256 of the image payload you looked at (from source get)"),
+            description: ShortText(2000).describe("What the image shows, factually"),
+            transcription: z
+              .string()
+              .trim()
+              .max(20_000)
+              .optional()
+              .describe("Visible text, transcribed verbatim; omit what you cannot read"),
+            observations: z
+              .array(
+                z
+                  .object({
+                    text: ShortText(500),
+                    legibility: z
+                      .enum(["clear", "uncertain"])
+                      .describe("uncertain = partly unreadable; never guess numbers"),
+                  })
+                  .strict(),
+              )
+              .max(30)
+              .default([]),
+          })
+          .strict(),
+      )
+      .max(20)
+      .default([])
+      .describe("Image interpretations by a vision-capable host, each bound to the exact image bytes"),
     warnings: z.array(ShortText(300)).max(10).default([]),
     model: ShortText(120)
       .nullable()

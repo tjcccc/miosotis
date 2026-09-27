@@ -15,9 +15,45 @@
       "description": "Client-chosen key; replaying the same request with it returns the original receipt."
     },
     "text": {
+      "description": "Content to preserve verbatim. Never rewritten. Optional when attachments are given (it becomes the comment on them).",
       "type": "string",
-      "maxLength": 1000000,
-      "description": "Content to preserve verbatim. Never rewritten."
+      "maxLength": 1000000
+    },
+    "attachments": {
+      "default": [],
+      "description": "Files saved with this capture; each becomes its own Source linked from the comment",
+      "maxItems": 20,
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4096,
+            "description": "Local file path readable by the miosotis CLI"
+          },
+          "filename": {
+            "description": "Display name; defaults to the file's base name",
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 255
+          },
+          "origin": {
+            "default": "imported",
+            "description": "user = the user made this file",
+            "type": "string",
+            "enum": [
+              "imported",
+              "user"
+            ]
+          }
+        },
+        "required": [
+          "path"
+        ],
+        "additionalProperties": false
+      }
     },
     "origin": {
       "default": "user",
@@ -100,8 +136,5 @@
       "description": "IANA timezone, e.g. Europe/Berlin"
     }
   },
-  "required": [
-    "text"
-  ],
   "additionalProperties": false
 }

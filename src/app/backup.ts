@@ -1,7 +1,18 @@
-import { copyFileSync, existsSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync, statSync } from "node:fs";
-import { basename, join, resolve } from "node:path";
+import {
+  copyFileSync,
+  existsSync,
+  mkdirSync,
+  readdirSync,
+  readFileSync,
+  renameSync,
+  rmSync,
+  statSync,
+  writeFileSync,
+} from "node:fs";
+import { basename, dirname, join, resolve } from "node:path";
 import { MiosotisError } from "../domain/errors.js";
 import { newId } from "../domain/ids.js";
+import { blobPath } from "../infra/blobs/store.js";
 import { DATABASE_FILENAME, libraryPaths, loadConfig, resolveConfiguredPath } from "../infra/config/config.js";
 import { Database, snapshotDatabase } from "../infra/db/database.js";
 import { latestSchemaVersion, migrate, schemaVersion } from "../infra/db/migrate.js";
@@ -22,6 +33,36 @@ export interface BackupManifest {
   database: { file: string; sha256: string; bytes: number };
   counts: Record<string, number>;
   excluded: string[];
+  blobs: { count: number; bytes: number };
+}
+
+export const BLOBS_DIRNAME = "blobs";
+
+function listBlobs(databasePath: string): { sha256: string; size: number }[] {
+  const db = new Database(databasePath, { readOnly: true });
+  try {
+    return db.get<{ n: number }>("SELECT count(*) AS n FROM sqlite_master WHERE name = 'blobs'")?.n === 1
+      ? db.all<{ sha256: string; size: number }>("SELECT sha256, size FROM blobs ORDER BY sha256")
+      : [];
+  } finally {
+    db.close();
+  }
+}
+
+/** Copies one blob between stores, refusing if the source bytes no longer match their hash. */
+function copyBlob(fromRoot: string, toRoot: string, sha256: string): number {
+  const from = blobPath(fromRoot, sha256);
+  if (!existsSync(from)) {
+    throw new MiosotisError("validation", `Blob ${sha256} is missing from ${fromRoot}`);
+  }
+  const bytes = readFileSync(from);
+  if (sha256Hex(bytes) !== sha256) {
+    throw new MiosotisError("validation", `Blob ${sha256} is corrupted (hash mismatch)`);
+  }
+  const to = blobPath(toRoot, sha256);
+  mkdirSync(dirname(to), { recursive: true, mode: 0o700 });
+  writeFileSync(to, bytes, { mode: 0o600 });
+  return bytes.byteLength;
 }
 
 /**
@@ -54,6 +95,9 @@ export async function createBackup(context: AppContext, options: { output?: stri
     rmSync(partial, { recursive: true, force: true });
     mkdirSync(partial, { recursive: true, mode: 0o700 });
     copyFileSync(databaseCopy, join(partial, DATABASE_FILENAME));
+    for (const blob of listBlobs(databaseCopy)) {
+      copyBlob(context.config.library.blobsDir, join(partial, BLOBS_DIRNAME), blob.sha256);
+    }
     copyFileSync(join(staging, MANIFEST_FILENAME), join(partial, MANIFEST_FILENAME));
     const verified = verifyBackup(partial);
     renameSync(partial, finalDir);
@@ -61,6 +105,11 @@ export async function createBackup(context: AppContext, options: { output?: stri
   } finally {
     rmSync(staging, { recursive: true, force: true });
   }
+}
+
+function blobTotals(databasePath: string): { count: number; bytes: number } {
+  const blobs = listBlobs(databasePath);
+  return { count: blobs.length, bytes: blobs.reduce((total, blob) => total + blob.size, 0) };
 }
 
 function inspectDatabase(path: string, createdAt: string): BackupManifest {
@@ -85,6 +134,7 @@ function inspectDatabase(path: string, createdAt: string): BackupManifest {
         projects: count("SELECT count(*) AS n FROM projects"),
       },
       excluded: ["artifacts/ (rendered views; rebuilt by `artifact open`)", "config.toml and any credentials"],
+      blobs: blobTotals(path),
     };
   } finally {
     db.close();
@@ -129,6 +179,18 @@ export function verifyBackup(directory: string): { path: string; manifest: Backu
   } finally {
     db.close();
   }
+  for (const blob of listBlobs(databasePath)) {
+    const file = blobPath(join(root, BLOBS_DIRNAME), blob.sha256);
+    if (!existsSync(file)) {
+      throw new MiosotisError("validation", `Backup is missing blob ${blob.sha256}`);
+    }
+    if (sha256Hex(readFileSync(file)) !== blob.sha256) {
+      throw new MiosotisError(
+        "validation",
+        `Backup blob ${blob.sha256} does not match its hash (corrupted or modified)`,
+      );
+    }
+  }
   return { path: root, manifest };
 }
 
@@ -154,6 +216,10 @@ export function restoreBackup(directory: string, options: { dataDir: string; env
   ensureDir(paths.artifactsDir);
   ensureDir(paths.stagingDir);
   copyFileSync(join(path, DATABASE_FILENAME), paths.database);
+  ensureDir(paths.blobsDir);
+  for (const blob of listBlobs(paths.database)) {
+    copyBlob(join(path, BLOBS_DIRNAME), paths.blobsDir, blob.sha256);
+  }
   const db = new Database(paths.database);
   try {
     db.get("PRAGMA journal_mode = WAL");

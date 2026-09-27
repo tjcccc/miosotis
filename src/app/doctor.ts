@@ -1,4 +1,6 @@
-import { existsSync, readdirSync } from "node:fs";
+import { existsSync, readdirSync, statSync } from "node:fs";
+import { join } from "node:path";
+import { BlobStore } from "../infra/blobs/store.js";
 import { loadConfig } from "../infra/config/config.js";
 import { Database, probeSqlite } from "../infra/db/database.js";
 import { latestSchemaVersion, schemaVersion } from "../infra/db/migrate.js";
@@ -123,6 +125,7 @@ export function runDoctor(options: { env?: NodeJS.ProcessEnv; version: string })
   } finally {
     db.close();
   }
+  checks.push(...blobChecks(config.library.database, config.library.blobsDir));
   const staging = existsSync(config.library.stagingDir) ? readdirSync(config.library.stagingDir) : [];
   checks.push({
     name: "staging",
@@ -158,4 +161,59 @@ export function compareVersions(a: string, b: string): number {
     }
   }
   return 0;
+}
+
+const SPOT_CHECK = 20;
+
+/** Stored files versus blob rows: missing files fail; unreferenced files and a hash spot-check warn/fail. */
+function blobChecks(databasePath: string, blobsDir: string): DoctorCheck[] {
+  const db = new Database(databasePath, { readOnly: true });
+  let rows: { sha256: string }[] = [];
+  try {
+    if (db.get<{ n: number }>("SELECT count(*) AS n FROM sqlite_master WHERE name = 'blobs'")?.n !== 1) {
+      return [];
+    }
+    rows = db.all<{ sha256: string }>("SELECT sha256 FROM blobs ORDER BY sha256");
+  } finally {
+    db.close();
+  }
+  const store = new BlobStore(blobsDir, blobsDir);
+  const known = new Set(rows.map((row) => row.sha256));
+  const missing = rows.filter((row) => !store.has(row.sha256)).length;
+  const onDisk = listBlobFiles(join(blobsDir, "sha256"));
+  const orphans = onDisk.filter((sha) => !known.has(sha)).length;
+  const corrupted = rows
+    .filter((row) => store.has(row.sha256))
+    .slice(0, SPOT_CHECK)
+    .filter((row) => !store.verify(row.sha256)).length;
+  return [
+    {
+      name: "blobs",
+      status: missing > 0 || corrupted > 0 ? "fail" : "ok",
+      detail:
+        missing > 0 || corrupted > 0
+          ? `${missing} missing and ${corrupted} corrupted of ${rows.length} stored files`
+          : `${rows.length} stored files present (hash spot-check of ${Math.min(rows.length, SPOT_CHECK)} passed)`,
+    },
+    {
+      name: "orphan_blobs",
+      status: orphans === 0 ? "ok" : "warn",
+      detail:
+        orphans === 0
+          ? "no unreferenced files"
+          : `${orphans} unreferenced files (left by an interrupted capture; kept, never auto-deleted)`,
+    },
+  ];
+}
+
+function listBlobFiles(root: string): string[] {
+  if (!existsSync(root)) {
+    return [];
+  }
+  return readdirSync(root).flatMap((prefix) => {
+    const directory = join(root, prefix);
+    return statSync(directory).isDirectory()
+      ? readdirSync(directory).filter((name) => /^[0-9a-f]{64}$/.test(name))
+      : [];
+  });
 }

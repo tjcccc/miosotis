@@ -22,6 +22,8 @@ export interface EvidenceItemRow {
   start_offset: number;
   end_offset: number;
   origin: "search" | "source_ref" | "quote_pin" | "carried";
+  derivation_id: string | null;
+  locator_json: string | null;
 }
 
 export function insertEvidenceRun(db: Database, row: EvidenceRunRow): void {
@@ -47,8 +49,19 @@ export function insertEvidenceRun(db: Database, row: EvidenceRunRow): void {
 
 export function insertEvidenceItem(db: Database, row: EvidenceItemRow): void {
   db.run(
-    "INSERT INTO evidence_items (run_id, handle, source_id, version, start_offset, end_offset, origin) VALUES (?, ?, ?, ?, ?, ?, ?)",
-    [row.run_id, row.handle, row.source_id, row.version, row.start_offset, row.end_offset, row.origin],
+    `INSERT INTO evidence_items (run_id, handle, source_id, version, start_offset, end_offset, origin, derivation_id, locator_json)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [
+      row.run_id,
+      row.handle,
+      row.source_id,
+      row.version,
+      row.start_offset,
+      row.end_offset,
+      row.origin,
+      row.derivation_id,
+      row.locator_json,
+    ],
   );
 }
 

@@ -1,5 +1,6 @@
 import { existsSync } from "node:fs";
 import { MiosotisError } from "../domain/errors.js";
+import { BlobStore } from "../infra/blobs/store.js";
 import { loadConfig, type MiosotisConfig } from "../infra/config/config.js";
 import { Database } from "../infra/db/database.js";
 import { migrate } from "../infra/db/migrate.js";
@@ -8,6 +9,7 @@ import { migrate } from "../infra/db/migrate.js";
 export interface AppContext {
   config: MiosotisConfig;
   db: Database;
+  blobs: BlobStore;
   now: () => Date;
 }
 
@@ -31,7 +33,12 @@ export function openContext(options: ContextOptions = {}): AppContext {
     db.close();
     throw error;
   }
-  return { config, db, now: options.now ?? (() => new Date()) };
+  return {
+    config,
+    db,
+    blobs: new BlobStore(config.library.blobsDir, config.library.stagingDir),
+    now: options.now ?? (() => new Date()),
+  };
 }
 
 export function closeContext(context: AppContext): void {

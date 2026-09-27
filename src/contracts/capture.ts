@@ -29,8 +29,23 @@ export const CaptureRequest = z
     text: z
       .string()
       .max(MAX_TEXT_LENGTH)
-      .refine((value) => value.trim().length > 0, "text must not be empty or whitespace only")
-      .describe("Content to preserve verbatim. Never rewritten."),
+      .optional()
+      .describe(
+        "Content to preserve verbatim. Never rewritten. Optional when attachments are given (it becomes the comment on them).",
+      ),
+    attachments: z
+      .array(
+        z
+          .object({
+            path: z.string().min(1).max(4096).describe("Local file path readable by the miosotis CLI"),
+            filename: z.string().min(1).max(255).optional().describe("Display name; defaults to the file's base name"),
+            origin: z.enum(["imported", "user"]).default("imported").describe("user = the user made this file"),
+          })
+          .strict(),
+      )
+      .max(20)
+      .default([])
+      .describe("Files saved with this capture; each becomes its own Source linked from the comment"),
     origin: z
       .enum(SOURCE_ORIGINS)
       .default("user")
@@ -42,7 +57,20 @@ export const CaptureRequest = z
     client_captured_at: IsoInstant.optional(),
     timezone: Timezone.optional(),
   })
-  .strict();
+  .strict()
+  .superRefine((value, context) => {
+    const hasText = value.text !== undefined && value.text.trim().length > 0;
+    if (!hasText && value.attachments.length === 0) {
+      context.addIssue({
+        code: "custom",
+        path: ["text"],
+        message: "text must not be empty or whitespace only (or attach files)",
+      });
+    }
+    if (value.text !== undefined && value.text.length > 0 && value.text.trim().length === 0) {
+      context.addIssue({ code: "custom", path: ["text"], message: "text must not be empty or whitespace only" });
+    }
+  });
 
 export type CaptureRequest = z.infer<typeof CaptureRequest>;
 export type CaptureRequestInput = z.input<typeof CaptureRequest>;

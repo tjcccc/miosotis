@@ -129,23 +129,47 @@ export function statusBanner(notices: StatusNotice[], checkedAt: string): string
 }
 
 /** A source revision page with the evidence spans used by one artifact highlighted. */
+export interface SourcePageImage {
+  handle: string;
+  filename: string;
+  mime: string;
+  /** Inline data URI (the viewer loads nothing from disk or network), or null when too large. */
+  dataUri: string | null;
+  interpretation: string | null;
+}
+
 export function sourcePage(input: {
   ref: string;
   origin: string;
   receivedAt: string;
+  /** Authored text, or extracted text when `textLabel` says so; null when purged or absent. */
   text: string | null;
+  textLabel?: string;
   spans: { handle: string; start: number; end: number }[];
+  images?: SourcePageImage[];
   backLink: string;
 }): string {
+  const images = (input.images ?? [])
+    .map(
+      (image) => `<figure id="span-${image.handle}">
+${image.dataUri === null ? `<p><em>${escapeHtml(image.filename)} is too large to embed here; open it from the library.</em></p>` : `<img src="${escapeHtml(image.dataUri)}" alt="${escapeHtml(image.filename)}" style="max-width:100%;height:auto;border-radius:6px">`}
+<figcaption>[${escapeHtml(image.handle)}] ${escapeHtml(image.filename)} (${escapeHtml(image.mime)})${image.interpretation === null ? "" : `<br><strong>Interpretation (model-derived, may contain errors):</strong> ${escapeHtml(image.interpretation)}`}</figcaption>
+</figure>`,
+    )
+    .join("\n");
+  const label = input.textLabel ?? "original text";
   const body =
     input.text === null
-      ? "<p><em>This revision's content was purged.</em></p>"
+      ? images.length > 0
+        ? ""
+        : "<p><em>This revision's content was purged.</em></p>"
       : `<pre class="source">${highlight(input.text, input.spans)}</pre>`;
   return htmlDocument({
     title: input.ref,
     body: `<p><a href="${escapeHtml(input.backLink)}">← Back to the artifact</a></p>
 <h1>${escapeHtml(input.ref)}</h1>
-<p class="meta"><span>${escapeHtml(input.origin)}</span><span>received ${escapeHtml(input.receivedAt)}</span><span>original text</span></p>
+<p class="meta"><span>${escapeHtml(input.origin)}</span><span>received ${escapeHtml(input.receivedAt)}</span><span>${escapeHtml(label)}</span></p>
+${images}
 ${body}`,
   });
 }

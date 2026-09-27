@@ -7,9 +7,9 @@ import { registerEnrich } from "./commands/enrich.js";
 import { registerEvidence } from "./commands/evidence.js";
 import { registerInit } from "./commands/init.js";
 import { registerIntents } from "./commands/intents.js";
-import { registerBackup, registerSkill } from "./commands/maintenance.js";
+import { registerBackup, registerPrefs, registerSkill, registerUndo } from "./commands/maintenance.js";
 import { registerProject } from "./commands/project.js";
-import { registerSave, type SaveOptions, saveAction } from "./commands/save.js";
+import { collect, registerSave, type SaveOptions, saveAction } from "./commands/save.js";
 import { registerSearch } from "./commands/search.js";
 import { registerSource } from "./commands/source.js";
 import { emitError, type OutputStreams, processStreams } from "./output/result.js";
@@ -37,6 +37,8 @@ export function buildProgram(runtime: CliRuntime): Command {
   registerEvidence(program, runtime);
   registerArtifact(program, runtime);
   registerBackup(program, runtime);
+  registerUndo(program, runtime);
+  registerPrefs(program, runtime);
   registerSkill(program, runtime);
   registerIntents(program, runtime);
 
@@ -44,9 +46,10 @@ export function buildProgram(runtime: CliRuntime): Command {
   program
     .argument("[text...]", "text to save")
     .option("--project <slug>", "working context for the saved text")
+    .option("--attach <path>", "save a local file with the text (repeatable)", collect, [])
     .option("--json", "print a JSON result envelope")
     .action(async (words: string[], options: SaveOptions) => {
-      if (words.length === 0) {
+      if (words.length === 0 && (options.attach ?? []).length === 0) {
         program.outputHelp();
         return;
       }

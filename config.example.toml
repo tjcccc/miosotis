@@ -6,6 +6,10 @@
 # data_dir = "~/.miosotis/data"
 
 [user]
+# Preferred reply language for AI hosts (BCP-47: en, zh-CN, ja, …). Unset: follow the language you write in.
+# Saved text is never translated.
+# language = "en"
+
 # IANA timezone used to interpret dates such as "today". Defaults to the system timezone.
 # timezone = "Europe/Berlin"
 

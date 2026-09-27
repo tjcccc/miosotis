@@ -20,7 +20,7 @@ export function registerEnrich(program: Command, runtime: CliRuntime): void {
           pendingEnrichment(context, { limit: parseInteger(options.limit, "--limit") }),
         );
         const lines = result.sources.map(
-          (row) => `${row.ref}  ${row.state}  ${row.char_length} chars  ${row.created_at}`,
+          (row) => `${row.ref}  ${row.state}  ${row.filename ?? `${row.char_length} chars`}  ${row.created_at}`,
         );
         lines.push(`${result.sources.length} of ${result.total} pending`);
         return { data: result, human: lines.join("\n") };

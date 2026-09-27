@@ -2,6 +2,35 @@
 
 Cross-session development log. Newest first. Keep entries short: what shipped, what was verified, what's open.
 
+## 2026-09-27 — v0.2.0-alpha.1 — Files and attachments
+
+- Add a content-addressed blob store (`data/blobs/sha256/…`): staged, fsynced, atomically renamed,
+  deduplicated, capped at 100 MB per file; synchronous magic-byte MIME detection (no dependency).
+- Add attachments to capture (`save --attach`, request `attachments`). The comment and each file
+  become one capture group of linked Sources with explicit project membership and honest per-stage
+  states. Idempotency covers the file hashes, and bad inputs commit nothing (migration 0005).
+- Extract text/Markdown files (strict UTF-8, BOM-aware) into blob-backed derivations with their own
+  chunks. Keep images with interpretation pending; hosts add `interpretations` bound to the image
+  hash. Search, `source get`, enrichment, evidence (extracted spans and whole images), and artifacts
+  (extracted-text and embedded-image source pages) all handle files. Image evidence pins the
+  interpretation it was cited with; "extraction replaced" and "interpretation replaced" notices
+  appear when either is redone.
+- A failure during post-commit extraction is recorded as a retryable `failed` state and never makes a
+  committed save look failed. `source correct` rejects text corrections of file Sources.
+- Centralize search indexing (`reindex`) over authored text, extracted text, filenames, enrichment,
+  and interpretations. Backup, restore, and verify copy and hash-check every blob, and `doctor`
+  reports missing, corrupted, and orphan files.
+- From owner testing:
+  - Add `miosotis undo` (confirm-first trash of the latest capture group, restorable).
+  - Add a warning when a bare save looks like a question.
+  - Add `[user] language`, `init --language`, and `miosotis prefs`.
+  - New Skill rules: questions go to retrieval and are never saved as notes, ambiguous requests get one question, the reply language follows `prefs`, and web text fetched by the host is saved only on demand, announced, and marked not verbatim.
+- Pass `pnpm check`: 118 tests. Claude used the Skill live against the linked CLI on a scratch
+  library: it saved a comment plus a Markdown log and a screenshot, viewed and interpreted the
+  image, and stored a cited review.
+  - The live run surfaced a host mistake: citation handles written before reading them back. The
+    Skill now insists on reading each handle from the evidence response.
+
 ## 2026-09-27 — v0.1.3 — Linked assets for HTML artifacts
 
 - Add `"assets": "embedded" | "linked"` (and `artifact create --assets`). `linked` pages may load

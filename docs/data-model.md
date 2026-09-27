@@ -23,6 +23,16 @@ The schema lives in `src/infra/db/migrations/`. Schema version is tracked with `
 - `idempotency_key` is unique per operation kind. The same key with the same canonical request digest returns the original receipt (`replayed: true`); the same key with different content is a `conflict`.
 - Saving the same text again without a key is a new, separate capture. Hashes protect integrity; they never merge history.
 
+## Files (migration 0005)
+
+- `blobs` is a content-addressed store: SHA-256 identity, size, and MIME type. Files live at `data/blobs/sha256/<2-char prefix>/<hash>`. Identical bytes are stored once; filenames belong to references.
+- `version_payloads` links a revision to its original bytes (append-only). A `file` Source's revision has empty `content_text`, `char_length` 0, and `content_digest` = `sha256:<blob>`.
+- One capture can create a group: the comment (a text Source) plus one file Source per attachment, joined by `source_links` rows of kind `references`.
+- Files are written and fsynced before the capture transaction. A failed transaction can leave an orphan blob, which `doctor` reports and never deletes; committed rows never point at missing files.
+- Extraction (phase B) stores extracted text as a blob-backed `extraction` derivation with its own `derived_chunks`. Images get `interpretation` derivations bound to the payload hash (`payload_sha256`).
+- `evidence_items.derivation_id` pins a span of extracted text. `locator_json` `{"payload_sha256", "interpretation_id", …}` pins a whole payload such as an image, together with the interpretation in force when pinned. Its offsets are `0..1` and ignored.
+- File Sources cannot be corrected with text. To correct one, save the corrected file as a new Source, or correct the comment.
+
 ## Derived data
 
 - `chunks` stores contiguous, non-overlapping paragraph spans (UTF-16 offsets, never splitting a surrogate pair) for every revision, so pinned evidence always resolves.

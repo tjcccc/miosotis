@@ -9,9 +9,9 @@ import { findOperation, insertOperation } from "../infra/db/repos/operations.js"
 import { insertChunks, insertSourceVersion, setProcessingState } from "../infra/db/repos/sources.js";
 import { digestOf, textDigest } from "../infra/digest.js";
 import { chunkText } from "../infra/search/chunker.js";
-import { reindexSource, removeFromIndex } from "../infra/search/indexer.js";
+import { removeFromIndex } from "../infra/search/indexer.js";
+import { reindex } from "./content.js";
 import { type AppContext, isoNow } from "./context.js";
-import { enrichmentSearchText } from "./enrich.js";
 import { dependentArtifacts, requireSource, requireVersion } from "./sources.js";
 
 export interface CorrectionReceipt {
@@ -53,6 +53,13 @@ export function correctSource(
     if (source.retention === "purged") {
       throw new MiosotisError("validation", `${id} was purged`);
     }
+    if (source.kind !== "text") {
+      throw new MiosotisError(
+        "validation",
+        `${id} is a ${source.kind} Source and cannot be corrected with text; save the corrected file as a new Source, or correct its comment`,
+        { source_id: id, kind: source.kind },
+      );
+    }
     if (source.current_version !== expectedVersion) {
       throw new MiosotisError(
         "conflict",
@@ -91,7 +98,7 @@ export function correctSource(
     ]);
     setProcessingState(context.db, { sourceId: id, version, stage: "enrichment", state: "pending", at });
     if (source.retention === "retained") {
-      reindexSource(context.db, { sourceId: id, version, text: request.text, chunks, enrichmentText: null });
+      reindex(context, id);
     }
     const receipt: CorrectionReceipt = {
       source_id: id,
@@ -175,24 +182,7 @@ export function changeSourcePolicy(
       changed = true;
     } else if (action === "restore" && source.retention === "trashed") {
       context.db.run("UPDATE sources SET retention = 'retained', updated_at = ? WHERE id = ?", [at, id]);
-      const version = requireVersion(context, id, source.current_version);
-      const chunks = context.db
-        .all<{ ordinal: number; start_offset: number; end_offset: number }>(
-          "SELECT ordinal, start_offset, end_offset FROM chunks WHERE source_id = ? AND version = ? ORDER BY ordinal",
-          [id, source.current_version],
-        )
-        .map((row) => ({ ordinal: row.ordinal, start: row.start_offset, end: row.end_offset }));
-      const enrichment = context.db.get<{ content_json: string | null }>(
-        "SELECT content_json FROM derived_records WHERE source_id = ? AND version = ? AND kind = 'enrichment' AND superseded_by IS NULL",
-        [id, source.current_version],
-      );
-      reindexSource(context.db, {
-        sourceId: id,
-        version: source.current_version,
-        text: version.content_text ?? "",
-        chunks,
-        enrichmentText: enrichment?.content_json ? enrichmentSearchText(JSON.parse(enrichment.content_json)) : null,
-      });
+      reindex(context, id);
       changed = true;
       reintroduced = source.inclusion === "included";
     }
