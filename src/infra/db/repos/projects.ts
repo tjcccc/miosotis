@@ -61,6 +61,84 @@ export function projectsForSources(db: Database, sourceIds: string[]): SourcePro
   );
 }
 
+export type AssignmentChange = "assigned" | "upgraded_from_inferred" | "unchanged" | "excluded";
+
+export function isExcluded(db: Database, sourceId: string, projectId: string): boolean {
+  return (
+    db.get("SELECT 1 FROM source_project_exclusions WHERE source_id = ? AND project_id = ?", [sourceId, projectId]) !==
+    undefined
+  );
+}
+
+export function setExclusion(
+  db: Database,
+  input: { sourceId: string; projectId: string; actor: string; at: string },
+): void {
+  db.run(
+    "INSERT OR IGNORE INTO source_project_exclusions (source_id, project_id, actor, created_at) VALUES (?, ?, ?, ?)",
+    [input.sourceId, input.projectId, input.actor, input.at],
+  );
+}
+
+export function clearExclusion(db: Database, sourceId: string, projectId: string): void {
+  db.run("DELETE FROM source_project_exclusions WHERE source_id = ? AND project_id = ?", [sourceId, projectId]);
+}
+
+/** Removes a membership row of either kind; returns the kind removed, if any. */
+export function removeMembership(db: Database, sourceId: string, projectId: string): "explicit" | "inferred" | null {
+  const row = db.get<{ assignment: "explicit" | "inferred" }>(
+    "SELECT assignment FROM source_projects WHERE source_id = ? AND project_id = ?",
+    [sourceId, projectId],
+  );
+  if (row === undefined) {
+    return null;
+  }
+  db.run("DELETE FROM source_projects WHERE source_id = ? AND project_id = ?", [sourceId, projectId]);
+  return row.assignment;
+}
+
+/**
+ * Explicit membership always wins: an explicit assignment upgrades an inferred row and clears any
+ * exclusion; an inferred suggestion never overrides explicit membership or an explicit exclusion.
+ */
+export function assignMembership(
+  db: Database,
+  input: {
+    sourceId: string;
+    projectId: string;
+    assignment: "explicit" | "inferred";
+    actor: string;
+    derivationId: string | null;
+    at: string;
+  },
+): AssignmentChange {
+  if (input.assignment === "inferred" && isExcluded(db, input.sourceId, input.projectId)) {
+    return "excluded";
+  }
+  if (input.assignment === "explicit") {
+    clearExclusion(db, input.sourceId, input.projectId);
+  }
+  const existing = db.get<{ assignment: string }>(
+    "SELECT assignment FROM source_projects WHERE source_id = ? AND project_id = ?",
+    [input.sourceId, input.projectId],
+  );
+  if (existing !== undefined) {
+    if (existing.assignment === "inferred" && input.assignment === "explicit") {
+      db.run(
+        "UPDATE source_projects SET assignment = 'explicit', actor = ?, derivation_id = NULL, created_at = ? WHERE source_id = ? AND project_id = ?",
+        [input.actor, input.at, input.sourceId, input.projectId],
+      );
+      return "upgraded_from_inferred";
+    }
+    return "unchanged";
+  }
+  db.run(
+    "INSERT INTO source_projects (source_id, project_id, assignment, actor, derivation_id, created_at) VALUES (?, ?, ?, ?, ?, ?)",
+    [input.sourceId, input.projectId, input.assignment, input.actor, input.derivationId, input.at],
+  );
+  return "assigned";
+}
+
 export function assignProject(
   db: Database,
   input: {
@@ -72,23 +150,6 @@ export function assignProject(
     at: string;
   },
 ): boolean {
-  const existing = db.get<{ assignment: string }>(
-    "SELECT assignment FROM source_projects WHERE source_id = ? AND project_id = ?",
-    [input.sourceId, input.projectId],
-  );
-  if (existing !== undefined) {
-    if (existing.assignment === "inferred" && input.assignment === "explicit") {
-      db.run(
-        "UPDATE source_projects SET assignment = 'explicit', actor = ?, derivation_id = NULL, created_at = ? WHERE source_id = ? AND project_id = ?",
-        [input.actor, input.at, input.sourceId, input.projectId],
-      );
-      return true;
-    }
-    return false;
-  }
-  db.run(
-    "INSERT INTO source_projects (source_id, project_id, assignment, actor, derivation_id, created_at) VALUES (?, ?, ?, ?, ?, ?)",
-    [input.sourceId, input.projectId, input.assignment, input.actor, input.derivationId, input.at],
-  );
-  return true;
+  const change = assignMembership(db, input);
+  return change === "assigned" || change === "upgraded_from_inferred";
 }

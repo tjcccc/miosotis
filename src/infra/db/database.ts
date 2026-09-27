@@ -1,4 +1,4 @@
-import { DatabaseSync, type SQLInputValue } from "node:sqlite";
+import { DatabaseSync, type SQLInputValue, backup as sqliteBackup } from "node:sqlite";
 import { MiosotisError } from "../../domain/errors.js";
 
 export type Params = Record<string, SQLInputValue> | SQLInputValue[];
@@ -127,5 +127,19 @@ export function probeSqlite(): { version: string; fts5Trigram: boolean; error: s
     }
   } finally {
     probe.close();
+  }
+}
+
+/**
+ * Consistent online snapshot of a live library via SQLite's backup API, then converted to a
+ * self-contained single file (rollback journal) so copies in synced folders never grow -wal/-shm files.
+ */
+export async function snapshotDatabase(source: Database, targetPath: string): Promise<void> {
+  await sqliteBackup(source.handle, targetPath);
+  const copy = new DatabaseSync(targetPath);
+  try {
+    copy.exec("PRAGMA journal_mode = DELETE");
+  } finally {
+    copy.close();
   }
 }

@@ -1,0 +1,88 @@
+{
+  "$id": "miosotis.artifact.v1",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "schema": {
+      "type": "string",
+      "const": "miosotis.artifact.v1"
+    },
+    "idempotency_key": {
+      "type": "string",
+      "minLength": 8,
+      "maxLength": 200,
+      "pattern": "^[\\x21-\\x7e]+$",
+      "description": "Client-chosen key; replaying the same request with it returns the original receipt."
+    },
+    "evidence_run_id": {
+      "type": "string",
+      "minLength": 1,
+      "description": "E-… from `evidence prepare`"
+    },
+    "intent": {
+      "type": "string",
+      "enum": [
+        "review",
+        "analysis",
+        "discuss"
+      ]
+    },
+    "title": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200
+    },
+    "request": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 2000,
+      "description": "The user's request, verbatim"
+    },
+    "markdown": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 500000,
+      "description": "Body in Markdown. Cite evidence with [@c3]. Raw HTML is shown as text, never executed."
+    },
+    "limitations": {
+      "default": [],
+      "maxItems": 20,
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 500
+      }
+    },
+    "model": {
+      "anyOf": [
+        {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "derived_from": {
+      "description": "A-… this artifact regenerates or follows up",
+      "type": "string",
+      "minLength": 1
+    },
+    "supersedes": {
+      "default": false,
+      "description": "Mark derived_from as replaced by this artifact",
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "evidence_run_id",
+    "intent",
+    "title",
+    "request",
+    "markdown"
+  ],
+  "additionalProperties": false
+}

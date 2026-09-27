@@ -59,4 +59,18 @@ describe("built CLI (subprocess)", () => {
     const listed = JSON.parse(run(["search", "parallel", "--limit", "50", "--json"]).stdout);
     expect(listed.data.total).toBe(8);
   });
+
+  it("assigns and unassigns existing sources to a project", () => {
+    const first = JSON.parse(run(["save", "--json", "剑之道 one"]).stdout).data.sources[0].id;
+    const second = JSON.parse(run(["save", "--json", "剑之道 two"]).stdout).data.sources[0].id;
+    const assigned = run(["source", "assign", first, second, "--project", "鬼武者剑之道", "--json"]);
+    expect(assigned.stdout.trim().split("\n")).toHaveLength(1);
+    expect(JSON.parse(assigned.stdout).data.project.created).toBe(true);
+    expect(JSON.parse(run(["source", "list", "--project", "鬼武者剑之道", "--json"]).stdout).data.total).toBe(2);
+    expect(JSON.parse(run(["search", "剑之道", "--project", "鬼武者剑之道", "--json"]).stdout).data.total).toBe(2);
+    const again = JSON.parse(run(["source", "unassign", second, "--project", "鬼武者剑之道", "--json"]).stdout);
+    expect(again.data.results[0].change).toBe("removed");
+    const missing = run(["source", "assign", "S-01M3G9NPX0XNVPV0NJTSNDH79K", "--project", "x", "--json"]);
+    expect(missing.code).toBe(3);
+  });
 });

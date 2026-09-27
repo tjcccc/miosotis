@@ -13,7 +13,7 @@ import { recordAudit } from "../infra/db/repos/audit.js";
 import { nextChangeSeq } from "../infra/db/repos/counters.js";
 import { activeDerived, insertDerivedRecord, supersedeDerived } from "../infra/db/repos/derived.js";
 import { findOperation, insertOperation } from "../infra/db/repos/operations.js";
-import { assignProject, findProjectById, listProjects, projectsForSources } from "../infra/db/repos/projects.js";
+import { assignMembership, findProjectById, listProjects, projectsForSources } from "../infra/db/repos/projects.js";
 import { getChunks, setProcessingState } from "../infra/db/repos/sources.js";
 import { digestOf } from "../infra/digest.js";
 import { reindexSource } from "../infra/search/indexer.js";
@@ -214,17 +214,18 @@ export function applyEnrichment(context: AppContext, input: EnrichmentRequestInp
     });
     const inferred: string[] = [];
     for (const projectId of projectIds) {
-      if (
-        assignProject(context.db, {
-          sourceId,
-          projectId,
-          assignment: "inferred",
-          actor: "agent",
-          derivationId,
-          at,
-        })
-      ) {
+      const change = assignMembership(context.db, {
+        sourceId,
+        projectId,
+        assignment: "inferred",
+        actor: "agent",
+        derivationId,
+        at,
+      });
+      if (change === "assigned") {
         inferred.push(projectId);
+      } else if (change === "excluded") {
+        warnings.push(`project suggestion ${projectId} ignored: the user removed this source from that project`);
       }
     }
     reindexSource(context.db, {

@@ -16,6 +16,8 @@ const EXCERPT_BEFORE = 80;
 const EXCERPT_AFTER = 220;
 
 export interface SearchMatch {
+  /** `text`: a term occurs in this span. `enrichment`: only AI-derived terms matched; this is the opening. */
+  matched_in: "text" | "enrichment";
   chunk_ordinal: number;
   start: number;
   end: number;
@@ -99,7 +101,8 @@ function findMatches(context: AppContext, sourceId: string, version: number, tok
     return [];
   }
   const textTokens = tokens.filter((token) => token.mode !== "id").map((token) => token.folded);
-  const scored = getChunks(context.db, sourceId, version)
+  const chunks = getChunks(context.db, sourceId, version);
+  const scored = chunks
     .map((chunk) => {
       const original = text.slice(chunk.start_offset, chunk.end_offset);
       const folded = foldForSearch(original);
@@ -109,6 +112,23 @@ function findMatches(context: AppContext, sourceId: string, version: number, tok
     .filter((entry) => entry.positions.length > 0 || textTokens.length === 0)
     .sort((a, b) => b.positions.length - a.positions.length || a.chunk.ordinal - b.chunk.ordinal)
     .slice(0, MAX_MATCHES_PER_SOURCE);
+  const first = chunks[0];
+  if (scored.length === 0 && first !== undefined) {
+    const excerpt = safeSlice(
+      text,
+      first.start_offset,
+      Math.min(first.end_offset, first.start_offset + EXCERPT_BEFORE + EXCERPT_AFTER),
+    );
+    return [
+      {
+        matched_in: "enrichment",
+        chunk_ordinal: first.ordinal,
+        start: first.start_offset,
+        end: first.start_offset + excerpt.length,
+        excerpt,
+      },
+    ];
+  }
   return scored.map(({ chunk, original, folded, positions }) => {
     const first = positions.length > 0 ? Math.min(...positions) : 0;
     const ratio = folded.length === 0 ? 1 : original.length / folded.length;
@@ -117,6 +137,7 @@ function findMatches(context: AppContext, sourceId: string, version: number, tok
     const localEnd = Math.min(original.length, center + EXCERPT_AFTER);
     const excerpt = safeSlice(original, localStart, localEnd);
     return {
+      matched_in: "text" as const,
       chunk_ordinal: chunk.ordinal,
       start: chunk.start_offset + localStart,
       end: chunk.start_offset + localStart + excerpt.length,

@@ -2,6 +2,42 @@
 
 Cross-session development log. Newest first. Keep entries short: what shipped, what was verified, what's open.
 
+## 2026-09-27 — v0.1.1 — Assign saved Sources to projects
+
+- Add `source assign <S-id…> --project <slug>`: explicit membership for already-saved Sources, the
+  same meaning as `save --project` (creates a new project, upgrades inferred membership), without
+  touching text or revisions; all-or-nothing and idempotent.
+- Add `source unassign <S-id…> --project <slug>`, which removes membership and records an explicit
+  exclusion (migration 0002, `source_project_exclusions`) so enrichment suggestions cannot re-add it;
+  enrichment now warns when it skips an excluded suggestion.
+- Update the Skill (assign when a project is named after saving; never use `project_suggestions` for
+  a user request), the contracts reference, `docs/cli-contract.md`, and `docs/data-model.md`.
+- Pass `pnpm check`: 89 tests, including the first populated v1 → v2 schema upgrade, explicit-over-
+  inferred and exclusion behavior, trashed/unknown rejection without partial writes, and CLI e2e.
+  Existing libraries migrate automatically on the next command.
+
+## 2026-09-27 — v0.1.0 — Skill-first MVP
+
+- Add the miosotis Skill (`skill/miosotis/`): intent routing (save, review, analysis, discuss,
+  govern, regenerate), heredoc-only JSON calls, attribution and no-causal-invention rules,
+  coverage via deterministic enumeration, and reference contracts/examples.
+- Generate request JSON Schemas from the zod contracts (`pnpm gen:schemas`), guarded by a
+  staleness test.
+- Add `skill install|uninstall|status --host claude-code|codex`: consented symlinks into
+  `~/.claude/skills` / `~/.agents/skills` that never replace a foreign entry.
+- Add `backup create/verify` (SQLite online backup → single-file snapshot, manifest written last,
+  `.partial` until verified) and `restore` into an empty folder only.
+- Search hits matched only through enrichment terms now show the source opening
+  (`matched_in: "enrichment"`).
+- Add `docs/cli-contract.md`, `docs/skill.md`, `docs/backup-and-retention.md`, `docs/security.md`,
+  `docs/dogfood.md`, and decision note 0001 (model ownership and the v0.4 provider boundary). Install the global CLI
+  with `npm link`.
+- Pass `pnpm check`: 83 tests, including backup round-trip into a new library, tamper and
+  interrupted-backup detection, and skill-install safety. Claude drove the Skill protocol live
+  against the linked CLI on a scratch library (saves, cross-language retrieval via terms, review,
+  analysis, correction notice, regeneration); the owner's fresh-session Skill discovery test is
+  still pending.
+
 ## 2026-09-27 — v0.1.0-alpha.2 — Vertical slice
 
 - Add host-agent enrichment: `enrich pending/prepare/apply` with a bounded, validated

@@ -33,7 +33,8 @@ The schema lives in `src/infra/db/migrations/`. Schema version is tracked with `
 ## Projects
 
 - `projects` has a stable ID, a unique slug in any script, a name, and an optional user-authored description.
-- `source_projects` records `explicit` (user) or `inferred` (AI suggestion) membership. Inferred never overwrites explicit. Saving with `--project <new slug>` creates the project because the user named it.
+- `source_projects` records `explicit` (user) or `inferred` (AI suggestion) membership. Inferred never overwrites explicit. Saving with `--project <new slug>`, or `source assign`, creates the project because the user named it.
+- `source_project_exclusions` (migration 0002) records an explicit "not in this project" decision made by `source unassign`. Inferred suggestions skip excluded pairs; `source assign` clears the exclusion. Assignment changes never touch source text or revisions. A newly assigned source bumps `changed_seq`, so project artifacts may show "new material".
 
 ## Evidence and artifacts
 

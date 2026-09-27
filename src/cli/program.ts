@@ -7,6 +7,7 @@ import { registerEnrich } from "./commands/enrich.js";
 import { registerEvidence } from "./commands/evidence.js";
 import { registerInit } from "./commands/init.js";
 import { registerIntents } from "./commands/intents.js";
+import { registerBackup, registerSkill } from "./commands/maintenance.js";
 import { registerProject } from "./commands/project.js";
 import { registerSave, type SaveOptions, saveAction } from "./commands/save.js";
 import { registerSearch } from "./commands/search.js";
@@ -35,6 +36,8 @@ export function buildProgram(runtime: CliRuntime): Command {
   registerEnrich(program, runtime);
   registerEvidence(program, runtime);
   registerArtifact(program, runtime);
+  registerBackup(program, runtime);
+  registerSkill(program, runtime);
   registerIntents(program, runtime);
 
   // Default action: free text is a save shortcut. Exact subcommands always take precedence.

@@ -18,7 +18,7 @@ future HTTP service ───────────┤
 ```
 
 - `src/cli` parses arguments, reads files/stdin, and renders results. It holds no product rules.
-- `src/app` owns the use cases (capture, source queries, search, enrichment, evidence, artifacts, governance; backup arrives at v0.1.0). Each use case validates input with a contract and runs its writes in one `Database.transaction()`.
+- `src/app` owns the use cases (capture, source queries, search, enrichment, evidence, artifacts, governance, backup, skill installation). Each use case validates input with a contract and runs its writes in one `Database.transaction()`.
 - `src/domain` and `src/contracts` import no Node APIs and nothing from `infra`, so the rules and contracts stay reusable by the v0.4 service and future clients.
 - `src/infra` implements storage and I/O. `infra` never imports `app` or `cli`. Only `src/infra/db/database.ts` imports `node:sqlite`.
 

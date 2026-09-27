@@ -1,0 +1,32 @@
+{
+  "$id": "miosotis.correction.v1",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "schema": {
+      "type": "string",
+      "const": "miosotis.correction.v1"
+    },
+    "idempotency_key": {
+      "type": "string",
+      "minLength": 8,
+      "maxLength": 200,
+      "pattern": "^[\\x21-\\x7e]+$",
+      "description": "Client-chosen key; replaying the same request with it returns the original receipt."
+    },
+    "text": {
+      "type": "string",
+      "maxLength": 1000000,
+      "description": "The complete corrected text (not a diff)"
+    },
+    "reason": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 500
+    }
+  },
+  "required": [
+    "text"
+  ],
+  "additionalProperties": false
+}

@@ -47,6 +47,18 @@ export function withContext<T>(options: ContextOptions, work: (context: AppConte
   }
 }
 
+export async function withContextAsync<T>(
+  options: ContextOptions,
+  work: (context: AppContext) => Promise<T>,
+): Promise<T> {
+  const context = openContext(options);
+  try {
+    return await work(context);
+  } finally {
+    closeContext(context);
+  }
+}
+
 export function isoNow(context: AppContext): string {
   return context.now().toISOString();
 }

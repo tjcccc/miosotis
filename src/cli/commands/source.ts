@@ -1,5 +1,6 @@
 import type { Command } from "commander";
 import { changeSourcePolicy, correctSource } from "../../app/governance.js";
+import { assignSources, unassignSources } from "../../app/membership.js";
 import { getSourceView, listSourceViews, sourceHistoryView } from "../../app/sources.js";
 import type { CorrectionRequestInput } from "../../contracts/artifact.js";
 import { parseInstantOption, parseInteger, parseRange, readRequestFile } from "../io.js";
@@ -150,6 +151,40 @@ ${dependents} artifact(s) cite this source; they are unchanged and will show a c
       });
     });
   };
+  source
+    .command("assign")
+    .description("Explicitly add existing Sources to a project (created if new; same meaning as save --project)")
+    .argument("<S-id...>", "one or more Sources (all-or-nothing)")
+    .requiredOption("--project <slug>", "project slug or P-id")
+    .option("--json", "print a JSON result envelope")
+    .action(async (ids: string[], options: JsonOption & { project: string }) => {
+      await runCommand(runtime, options.json, () => {
+        const result = inLibrary(runtime, (context) => assignSources(context, ids, options.project));
+        const lines = [
+          `Project ${result.project.slug}${result.project.created ? " (new)" : ""}`,
+          ...result.results.map((row) => `  ${row.source_id}: ${row.change.replaceAll("_", " ")}`),
+        ];
+        return { data: result, human: lines.join("\n") };
+      });
+    });
+
+  source
+    .command("unassign")
+    .description("Remove Sources from a project and keep AI suggestions from re-adding them (reversible with assign)")
+    .argument("<S-id...>", "one or more Sources (all-or-nothing)")
+    .requiredOption("--project <slug>", "existing project slug or P-id")
+    .option("--json", "print a JSON result envelope")
+    .action(async (ids: string[], options: JsonOption & { project: string }) => {
+      await runCommand(runtime, options.json, () => {
+        const result = inLibrary(runtime, (context) => unassignSources(context, ids, options.project));
+        const lines = [
+          `Project ${result.project.slug}`,
+          ...result.results.map((row) => `  ${row.source_id}: ${row.change.replaceAll("_", " ")}`),
+        ];
+        return { data: result, human: lines.join("\n") };
+      });
+    });
+
   policy("ignore", "Exclude from default retrieval (content kept; reversible with include)");
   policy("include", "Return an ignored Source to default retrieval");
   policy("trash", "Move to the trash (content kept; reversible with restore)");

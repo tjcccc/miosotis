@@ -1,6 +1,6 @@
 {
   "name": "miosotis",
-  "version": "0.1.0-alpha.2",
+  "version": "0.1.1",
   "private": true,
   "description": "Local-first, AI-managed personal knowledge system",
   "license": "GPL-3.0-only",
@@ -23,7 +23,8 @@
     "format": "biome format --write .",
     "test": "vitest run",
     "check": "pnpm typecheck && pnpm lint && pnpm build && pnpm test",
-    "miosotis": "node dist/index.js"
+    "miosotis": "node dist/index.js",
+    "gen:schemas": "pnpm build && node scripts/gen-schemas.mjs"
   },
   "dependencies": {
     "commander": "^15.0.0",

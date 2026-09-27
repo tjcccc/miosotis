@@ -32,7 +32,12 @@ describe("enrichment (host_agent)", () => {
     expect(view.text).toBe("Artifacts should be regenerated only when the user asks.");
     expect(view.processing).toMatchObject({ enrichment: { state: "complete" } });
     expect(view.enrichment).toMatchObject({ derived: true, model: null });
-    expect(search(library.context, { query: "重新生成" }).hits.map((hit) => hit.source_id)).toEqual([id]);
+    const viaTerms = search(library.context, { query: "重新生成" });
+    expect(viaTerms.hits.map((hit) => hit.source_id)).toEqual([id]);
+    expect(viaTerms.hits[0]?.matches[0]).toMatchObject({
+      matched_in: "enrichment",
+      excerpt: expect.stringContaining("Artifacts"),
+    });
     expect(pendingEnrichment(library.context).total).toBe(0);
   });
 

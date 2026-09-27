@@ -1,0 +1,148 @@
+{
+  "$id": "miosotis.evidence.v1",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "schema": {
+      "type": "string",
+      "const": "miosotis.evidence.v1"
+    },
+    "request": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 2000,
+      "description": "The user's request, verbatim"
+    },
+    "intent": {
+      "type": "string",
+      "enum": [
+        "review",
+        "analysis",
+        "discuss"
+      ]
+    },
+    "project": {
+      "description": "Scope; defaults to the whole library",
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64
+    },
+    "interpretation": {
+      "type": "object",
+      "properties": {
+        "timezone": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64,
+          "description": "IANA timezone, e.g. Europe/Berlin"
+        },
+        "date_from": {
+          "type": "string",
+          "maxLength": 40
+        },
+        "date_to": {
+          "type": "string",
+          "maxLength": 40
+        },
+        "notes": {
+          "description": "How the request was interpreted (boundaries, assumptions)",
+          "type": "string",
+          "maxLength": 2000
+        }
+      },
+      "additionalProperties": false
+    },
+    "queries": {
+      "default": [],
+      "description": "Search queries (variants, other languages); each hit's matching chunks become items",
+      "maxItems": 12,
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 500
+      }
+    },
+    "match": {
+      "default": "all",
+      "type": "string",
+      "enum": [
+        "all",
+        "any"
+      ]
+    },
+    "per_query_limit": {
+      "default": 10,
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 50
+    },
+    "source_refs": {
+      "default": [],
+      "description": "Pin whole sources (every chunk) or one chunk",
+      "maxItems": 100,
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "ref": {
+            "type": "string",
+            "minLength": 1,
+            "description": "S-… (current) or S-…@vN"
+          },
+          "chunk": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": [
+          "ref"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "quotes": {
+      "default": [],
+      "description": "Pin exact passages you read in full",
+      "maxItems": 100,
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "ref": {
+            "type": "string",
+            "minLength": 1
+          },
+          "quote": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 5000,
+            "description": "Exact text copied from the source"
+          },
+          "occurrence": {
+            "description": "Which occurrence, when the quote repeats",
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": [
+          "ref",
+          "quote"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "max_items": {
+      "default": 60,
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 200
+    }
+  },
+  "required": [
+    "request"
+  ],
+  "additionalProperties": false
+}
