@@ -1,6 +1,6 @@
 {
   "name": "miosotis",
-  "version": "0.1.0-alpha.1",
+  "version": "0.1.0-alpha.2",
   "private": true,
   "description": "Local-first, AI-managed personal knowledge system",
   "license": "GPL-3.0-only",
@@ -34,7 +34,6 @@
   },
   "devDependencies": {
     "@biomejs/biome": "^2.5.14",
-    "@types/markdown-it": "^14.2.0",
     "@types/node": "^24.19.0",
     "typescript": "^7.0.2",
     "vitest": "^5.0.2"

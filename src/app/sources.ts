@@ -1,6 +1,7 @@
 import { MiosotisError } from "../domain/errors.js";
 import { formatSourceRef, parseSourceRef } from "../domain/ids.js";
 import { safeSlice } from "../domain/text.js";
+import { artifactsCitingSource } from "../infra/db/repos/artifacts.js";
 import { projectsForSources } from "../infra/db/repos/projects.js";
 import {
   currentEnrichments,
@@ -32,6 +33,16 @@ export function requireVersion(context: AppContext, id: string, version: number)
     throw new MiosotisError("not_found", `No version ${version} of ${id}`, { source_id: id, version });
   }
   return row;
+}
+
+/** Artifacts that cite any revision of this source, and which revision each used. */
+export function dependentArtifacts(context: AppContext, sourceId: string) {
+  return artifactsCitingSource(context.db, sourceId).map((row) => ({
+    artifact_id: row.artifact_id,
+    title: row.title,
+    lifecycle: row.lifecycle,
+    used_version: row.version,
+  }));
 }
 
 export interface GetSourceOptions {
@@ -95,6 +106,7 @@ export function getSourceView(context: AppContext, reference: string, options: G
         { state: row.state, attempts: row.attempts, last_error: row.last_error, updated_at: row.updated_at },
       ]),
     ),
+    dependent_artifacts: dependentArtifacts(context, source.id),
     enrichment:
       enrichment === undefined
         ? null

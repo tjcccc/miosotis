@@ -1,6 +1,8 @@
 import type { Command } from "commander";
+import { changeSourcePolicy, correctSource } from "../../app/governance.js";
 import { getSourceView, listSourceViews, sourceHistoryView } from "../../app/sources.js";
-import { parseInstantOption, parseInteger, parseRange } from "../io.js";
+import type { CorrectionRequestInput } from "../../contracts/artifact.js";
+import { parseInstantOption, parseInteger, parseRange, readRequestFile } from "../io.js";
 import { type CliRuntime, inLibrary, type JsonOption, runCommand } from "../runtime.js";
 
 export function registerSource(program: Command, runtime: CliRuntime): void {
@@ -96,4 +98,60 @@ export function registerSource(program: Command, runtime: CliRuntime): void {
         return { data: history, human: lines.join("\n") };
       });
     });
+
+  source
+    .command("correct")
+    .description("Append a corrected revision (old revisions and artifacts stay pinned)")
+    .argument("<S-id>")
+    .requiredOption("--expected-version <n>", "the revision you corrected; a stale value is rejected")
+    .requiredOption("--request-file <path>", "miosotis.correction.v1 JSON file, or - for stdin")
+    .option("--json", "print a JSON result envelope")
+    .action(async (id: string, options: JsonOption & { expectedVersion: string; requestFile: string }) => {
+      await runCommand(runtime, options.json, async () => {
+        const request = (await readRequestFile(options.requestFile)) as CorrectionRequestInput;
+        const receipt = inLibrary(runtime, (context) =>
+          correctSource(context, id, parseInteger(options.expectedVersion, "--expected-version"), request),
+        );
+        const dependents = receipt.dependent_artifacts.length;
+        return {
+          data: receipt,
+          human: `${receipt.replayed ? "Already corrected" : "Corrected"} ${receipt.source_id}: v${receipt.previous_version} → v${receipt.version}. Enrichment pending.${
+            dependents > 0
+              ? `
+${dependents} artifact(s) cite this source; they are unchanged and will show a correction notice.`
+              : ""
+          }`,
+        };
+      });
+    });
+
+  const policy = (name: "ignore" | "include" | "trash" | "restore", description: string) => {
+    const command = source
+      .command(name)
+      .description(description)
+      .argument("<S-id>")
+      .option("--json", "print a JSON result envelope");
+    if (name === "ignore") {
+      command.requiredOption("--reason <text>", "why it should leave default retrieval");
+    }
+    if (name === "trash") {
+      command.option("--confirm", "confirm the action");
+    }
+    command.action(async (id: string, options: JsonOption & { reason?: string; confirm?: boolean }) => {
+      await runCommand(runtime, options.json, () => {
+        const result = inLibrary(runtime, (context) =>
+          changeSourcePolicy(context, id, name, { reason: options.reason, confirm: options.confirm }),
+        );
+        const dependents = result.dependent_artifacts.length;
+        return {
+          data: result,
+          human: `${result.changed ? "Updated" : "Unchanged"} ${result.source_id}: ${result.retention}/${result.inclusion}${dependents > 0 ? ` · ${dependents} dependent artifact(s) keep their pinned evidence` : ""}`,
+        };
+      });
+    });
+  };
+  policy("ignore", "Exclude from default retrieval (content kept; reversible with include)");
+  policy("include", "Return an ignored Source to default retrieval");
+  policy("trash", "Move to the trash (content kept; reversible with restore)");
+  policy("restore", "Restore a trashed Source");
 }

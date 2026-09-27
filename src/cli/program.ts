@@ -1,7 +1,10 @@
 import { Command, CommanderError } from "commander";
 import { MiosotisError } from "../domain/errors.js";
 import { VERSION } from "../version.js";
+import { registerArtifact } from "./commands/artifact.js";
 import { registerDoctor } from "./commands/doctor.js";
+import { registerEnrich } from "./commands/enrich.js";
+import { registerEvidence } from "./commands/evidence.js";
 import { registerInit } from "./commands/init.js";
 import { registerIntents } from "./commands/intents.js";
 import { registerProject } from "./commands/project.js";
@@ -29,6 +32,9 @@ export function buildProgram(runtime: CliRuntime): Command {
   registerSource(program, runtime);
   registerProject(program, runtime);
   registerSearch(program, runtime);
+  registerEnrich(program, runtime);
+  registerEvidence(program, runtime);
+  registerArtifact(program, runtime);
   registerIntents(program, runtime);
 
   // Default action: free text is a save shortcut. Exact subcommands always take precedence.

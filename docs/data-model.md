@@ -15,7 +15,7 @@ The schema lives in `src/infra/db/migrations/`. Schema version is tracked with `
 - `source_versions` holds immutable content: verbatim `content_text`, `content_digest`, `char_length`, observable `provenance_json` (supplied URL, author, reported publication date with precision), `received_at` (UTC), optional `client_captured_at`, and the IANA `timezone` used to interpret it.
 - `(sources.id, current_version)` references `source_versions` with a deferred foreign key, so a source can never point at a missing or foreign revision. Inserts therefore run inside the transaction helper.
 - A trigger makes `source_versions` append-only. The only permitted update is the purge transition (content and digest set to NULL, `purged_at` set, identity kept). Purge itself ships in v0.3; the schema is ready for it.
-- A correction (v0.1 checkpoint 2) adds version N+1 with `parent_version = N` and moves `current_version`, guarded by an expected-version check.
+- A correction adds version N+1 with `parent_version = N` and moves `current_version`, guarded by an expected-version check (a stale value is a `conflict`). The new revision starts with enrichment `pending`; older revisions, their enrichment, and artifacts pinned to them are untouched.
 
 ## Capture groups and idempotency
 
@@ -35,11 +35,19 @@ The schema lives in `src/infra/db/migrations/`. Schema version is tracked with `
 - `projects` has a stable ID, a unique slug in any script, a name, and an optional user-authored description.
 - `source_projects` records `explicit` (user) or `inferred` (AI suggestion) membership. Inferred never overwrites explicit. Saving with `--project <new slug>` creates the project because the user named it.
 
-## Evidence and artifacts (tables present from v1; used from checkpoint 2)
+## Evidence and artifacts
 
 - `evidence_runs` pin a request, its interpretation (timezone, date bounds, query variants), scope, strategy version, and a `watermark_seq` for later freshness checks.
 - `evidence_items` assign core-owned handles (`c1…cN`) to exact `(source, version, start, end)` spans. Excerpts are computed from immutable text rather than copied, so a future purge has nothing extra to chase.
 - `artifacts` store frozen Markdown, rendered HTML, and a content hash; a trigger rejects content changes except the purge transition. `artifact_citations` uses composite foreign keys so a citation can only reference a handle from the artifact's own evidence run. `artifact_links` records `derived_from`/`supersedes` lineage.
+- An evidence run is immutable. `evidence prepare --from E-…` creates a new run that carries earlier items with their handles.
+- Artifact publication (artifact row, citations, lineage links, idempotency receipt) is one transaction. The static folder `artifacts/<A-id>/` (`index.html` plus `sources/<S-id>@vN.html`) is a rebuildable view: it wraps the stored body with a status banner computed at open time.
+
+## Source policy
+
+- `ignore` / `include` change retrieval inclusion (with a reason); `trash` / `restore` change retention. None rewrites content.
+- Trashing removes the source's search rows; restoring rebuilds them from the stored chunks and current enrichment.
+- Re-including or restoring bumps `changed_seq`, so artifacts in scope show "new material may be available". Ignoring or trashing a cited source shows "unavailable" on those artifacts instead.
 
 ## Freshness watermark
 
