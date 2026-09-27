@@ -1,0 +1,14 @@
+# miosotis configuration (~/.miosotis/config.toml, or $MIOSOTIS_HOME/config.toml). All keys are optional.
+
+# Library folder (database + managed files). Keep it on a local disk, not in a live-synced
+# folder such as OneDrive or iCloud; use [backup].dir for cloud copies instead.
+# Relative paths resolve against the miosotis home folder.
+# data_dir = "~/.miosotis/data"
+
+[user]
+# IANA timezone used to interpret dates such as "today". Defaults to the system timezone.
+# timezone = "Europe/Berlin"
+
+[backup]
+# Default destination for `miosotis backup create` (a cloud-synced folder is fine here).
+# dir = "~/OneDrive/miosotis-backups"
