@@ -12,17 +12,41 @@ export const ArtifactRequest = z
     intent: Intent,
     title: z.string().trim().min(1).max(200),
     request: z.string().trim().min(1).max(2000).describe("The user's request, verbatim"),
+    format: z
+      .enum(["markdown", "html"])
+      .default("markdown")
+      .describe(
+        "markdown = the Markdown body is the artifact; html = a self-contained interactive page plus the Markdown summary",
+      ),
     markdown: z
       .string()
       .min(1)
       .max(500_000)
-      .describe("Body in Markdown. Cite evidence with [@c3]. Raw HTML is shown as text, never executed."),
+      .describe(
+        "Body in Markdown (for format=html: the citable summary shown under the page). Cite evidence with [@c3]. Raw HTML is shown as text, never executed.",
+      ),
+    html: z
+      .string()
+      .min(1)
+      .max(5_000_000)
+      .optional()
+      .describe(
+        'format=html only: a complete, self-contained HTML page. No network: inline all CSS/JS (including any library, e.g. as data: modules in an import map) and embed images and fonts as data: URLs. Mark cited elements with data-cite="c3".',
+      ),
     limitations: z.array(z.string().trim().min(1).max(500)).max(20).default([]),
     model: z.string().trim().min(1).max(120).nullable().optional(),
     derived_from: z.string().min(1).optional().describe("A-… this artifact regenerates or follows up"),
     supersedes: z.boolean().default(false).describe("Mark derived_from as replaced by this artifact"),
   })
-  .strict();
+  .strict()
+  .superRefine((value, context) => {
+    if (value.format === "html" && value.html === undefined) {
+      context.addIssue({ code: "custom", path: ["html"], message: "format=html requires an html page" });
+    }
+    if (value.format === "markdown" && value.html !== undefined) {
+      context.addIssue({ code: "custom", path: ["html"], message: "html is only accepted with format=html" });
+    }
+  });
 
 export type ArtifactRequest = z.infer<typeof ArtifactRequest>;
 export type ArtifactRequestInput = z.input<typeof ArtifactRequest>;

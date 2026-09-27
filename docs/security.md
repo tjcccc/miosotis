@@ -15,6 +15,14 @@ miosotis is a single-user, local tool with no server, no network access, and no 
 - Pages carry `Content-Security-Policy: default-src 'none'; style-src 'unsafe-inline'; img-src data:; base-uri 'none'; form-action 'none'`. They contain no scripts, load no remote assets, and send no referrer.
 - Report bodies are frozen at creation. Viewers only add a status banner built from escaped text.
 
+## Rich HTML artifacts (host-authored pages)
+
+- Pages must be self-contained. The page is untrusted code, so it is stored verbatim and only ever shown inside `<iframe sandbox="allow-scripts">`. There is no `allow-same-origin`, so the page gets an opaque origin: no access to the viewer page, cookies, storage, or other files.
+- miosotis injects this policy at the top of the page's `<head>`: `default-src 'none'; script-src 'unsafe-inline' data:; style-src 'unsafe-inline'; img-src data: blob:; font-src data:; media-src data: blob:; worker-src blob:; connect-src 'none'; base-uri 'none'; form-action 'none'`. The page cannot fetch, load remote images, or submit forms. A `srcdoc` frame inherits the viewer's policy, so the viewer uses the same one; the viewer itself contains no scripts, only escaped text.
+- Before storing, the core rejects pages that reference remote resources (including remote import-map entries) or use `<base>` or meta refresh. miosotis ships no page libraries. This gives honest early feedback; the CSP remains the actual boundary.
+- Verified in Chrome on 2026-09-27: in-page `fetch`, a remote image, parent access, and `localStorage` were all blocked, while self-contained Canvas and WebGL pages rendered.
+- The status banner and the cited summary live outside the frame, where the page cannot alter them.
+
 ## Filesystem
 
 - Library paths resolve under `data_dir`; derived paths go through a containment check.

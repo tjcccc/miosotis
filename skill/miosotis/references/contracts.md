@@ -104,6 +104,24 @@ Copy `source_ref` exactly from `enrich prepare`.
 }
 ```
 
+Rich page variant (`"format": "html"`), for example `--derived-from A-REVIEW`:
+
+```json
+{
+  "evidence_run_id": "E-…",
+  "intent": "review",
+  "format": "html",
+  "title": "Playthrough in 3D",
+  "request": "Make a cool 3D demo of my playthrough",
+  "markdown": "Hours per chapter: 3, 5, 2 [@c1]. Chapter 2 needed 12 boss retries [@c1].",
+  "html": "<!doctype html><html><head><meta charset=\"utf-8\"><style>body{margin:0}</style></head><body><h2 data-cite=\"c1\">Hours by chapter</h2><canvas id=\"c\"></canvas><script>/* draw with Canvas 2D; everything inline */</script></body></html>"
+}
+```
+
+- `html` is at most 5 MB and must be self-contained, with no remote resources. Embed any library yourself, for example as `data:` modules in an import map, and build large requests with a script rather than typing them out.
+- `data-cite` handles are validated like `[@cN]`.
+- `markdown` is required and is what `export --format md` returns.
+
 - Only `[@cN]` handles from that evidence run are accepted. `[@cN]` inside code is ignored.
 - Raw HTML in the Markdown is displayed as text.
 - The response gives `data.id` (`A-…`), `data.path` (the HTML file), and `data.citations`.

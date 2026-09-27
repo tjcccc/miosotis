@@ -15,6 +15,12 @@ import { digestOf, sha256Hex } from "../infra/digest.js";
 import { containedPath, ensureDir, writeFileAtomic } from "../infra/fs/files.js";
 import { extractCitations, renderMarkdown } from "../infra/render/markdown.js";
 import { artifactBody, htmlDocument, type StatusNotice, sourcePage, statusBanner } from "../infra/render/pages.js";
+import {
+  inspectRichHtml,
+  RICH_CONTENT_SECURITY_POLICY,
+  sandboxedDocument,
+  sandboxFrame,
+} from "../infra/render/rich.js";
 import { type AppContext, isoNow } from "./context.js";
 import { requireRun } from "./evidence.js";
 
@@ -25,6 +31,7 @@ export interface ArtifactReceipt {
   replayed: boolean;
   title: string;
   intent: string;
+  format: string;
   evidence_run_id: string;
   content_hash: string;
   citations: string[];
@@ -52,7 +59,13 @@ export function createArtifact(context: AppContext, input: ArtifactRequestInput)
     }
     const run = requireRun(context, request.evidence_run_id);
     const items = new Map(getEvidenceItems(context.db, run.id).map((item) => [item.handle, item]));
-    const handles = extractCitations(request.markdown);
+    const rich = request.format === "html" && request.html !== undefined ? inspectRichHtml(request.html) : undefined;
+    if (rich !== undefined && rich.problems.length > 0) {
+      throw new MiosotisError("validation", `The HTML page cannot be stored: ${rich.problems.join("; ")}`, {
+        problems: rich.problems,
+      });
+    }
+    const handles = [...new Set([...extractCitations(request.markdown), ...(rich?.cites ?? [])])];
     const unknown = handles.filter((handle) => !items.has(handle));
     if (unknown.length > 0) {
       throw new MiosotisError("validation", `Citations not in evidence run ${run.id}: ${unknown.join(", ")}`, {
@@ -121,6 +134,7 @@ export function createArtifact(context: AppContext, input: ArtifactRequestInput)
         title: request.title,
         markdown: request.markdown,
         html: renderedHtml,
+        page: request.html ?? null,
         limitations: request.limitations,
         citations: handles,
       }),
@@ -129,6 +143,8 @@ export function createArtifact(context: AppContext, input: ArtifactRequestInput)
       id,
       schema_version: ARTIFACT_SCHEMA_VERSION,
       intent: request.intent,
+      format: request.format,
+      payload_html: request.html ?? null,
       title: request.title,
       request: request.request,
       evidence_run_id: run.id,
@@ -166,6 +182,7 @@ export function createArtifact(context: AppContext, input: ArtifactRequestInput)
       replayed: false,
       title: request.title,
       intent: request.intent,
+      format: request.format,
       evidence_run_id: run.id,
       content_hash: contentHash,
       citations: handles,
@@ -297,6 +314,7 @@ export function artifactView(context: AppContext, id: string, options: { include
     id: artifact.id,
     title: artifact.title,
     intent: artifact.intent,
+    format: artifact.format,
     request: artifact.request,
     lifecycle: artifact.lifecycle,
     finalized_at: artifact.finalized_at,
@@ -344,6 +362,7 @@ export function listArtifacts(context: AppContext, options: { all?: boolean; lim
       id: row.id,
       title: row.title,
       intent: row.intent,
+      format: row.format,
       lifecycle: row.lifecycle,
       finalized_at: row.finalized_at,
       notices: freshness(context, row).length,
@@ -400,13 +419,7 @@ export function materializeArtifact(context: AppContext, id: string): { path: st
   const directory = artifactDir(context, artifact.id);
   ensureDir(directory);
   const notices = freshness(context, artifact).map(describeSignal);
-  writeFileAtomic(
-    join(directory, "index.html"),
-    htmlDocument({
-      title: artifact.title ?? artifact.id,
-      body: `${statusBanner(notices, isoNow(context))}\n${artifact.rendered_html}`,
-    }),
-  );
+  writeFileAtomic(join(directory, "index.html"), viewerDocument(artifact, statusBanner(notices, isoNow(context))));
   const citations = getCitations(context.db, artifact.id);
   const byRevision = new Map<string, typeof citations>();
   for (const citation of citations) {
@@ -441,6 +454,23 @@ export function materializeArtifact(context: AppContext, id: string): { path: st
   return { path: join(directory, "index.html"), notices: notices.map((notice) => notice.text) };
 }
 
+/**
+ * The viewable page: a trusted banner and the frozen summary body; for HTML artifacts, the stored page
+ * runs above them inside a sandboxed iframe (opaque origin, no network).
+ */
+function viewerDocument(artifact: ArtifactRow, banner: string): string {
+  const title = artifact.title ?? artifact.id;
+  if (artifact.format === "html" && artifact.payload_html !== null) {
+    const page = sandboxedDocument(artifact.payload_html);
+    return htmlDocument({
+      title,
+      csp: RICH_CONTENT_SECURITY_POLICY,
+      body: `${banner}\n${sandboxFrame(title, page)}\n${artifact.rendered_html ?? ""}`,
+    });
+  }
+  return htmlDocument({ title, body: `${banner}\n${artifact.rendered_html ?? ""}` });
+}
+
 export function openInBrowser(path: string): void {
   const [command, args] =
     process.platform === "darwin"
@@ -466,10 +496,7 @@ export function exportArtifact(
     return { content: artifact.content_markdown, filename: `${artifact.id}.md` };
   }
   if (format === "html") {
-    return {
-      content: htmlDocument({ title: artifact.title ?? artifact.id, body: artifact.rendered_html }),
-      filename: `${artifact.id}.html`,
-    };
+    return { content: viewerDocument(artifact, ""), filename: `${artifact.id}.html` };
   }
   return {
     content: `${JSON.stringify(artifactView(context, artifact.id), null, 2)}\n`,

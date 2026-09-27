@@ -5,7 +5,8 @@ miosotis is a local-first, AI-managed personal knowledge system. You express som
 **Status: `0.1.0`.** A text-only, single-user MVP that you use through an AI host:
 - Tell Claude Code "remember this", "review my notes on X", or "correct that note", and the miosotis Skill saves, organizes, retrieves, and writes cited reports.
 - The CLI keeps the library local, faithful, and traceable.
-- Attachments, URLs, PDFs, and spreadsheets are next (v0.2).
+- Reports can be Markdown or self-contained interactive HTML pages, always sandboxed and offline.
+- Attachments, URLs, PDFs, and spreadsheets are next (v0.2). See `docs/roadmap.md`.
 
 ## Requirements
 
@@ -82,7 +83,7 @@ pnpm check     # typecheck → lint → build → test
 pnpm format
 ```
 
-Docs: `docs/architecture.md`, `docs/data-model.md`, `docs/cli-contract.md`, `docs/skill.md`, `docs/backup-and-retention.md`, `docs/security.md`, `docs/dogfood.md`, `docs/decisions/`. Change history: `DEVLOG.md`.
+Docs: `docs/architecture.md`, `docs/data-model.md`, `docs/cli-contract.md`, `docs/skill.md`, `docs/backup-and-retention.md`, `docs/security.md`, `docs/roadmap.md`, `docs/dogfood.md`, `docs/decisions/`. Change history: `DEVLOG.md`.
 
 ## License
 

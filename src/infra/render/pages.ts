@@ -35,16 +35,18 @@ sup.cite a { text-decoration: none; font-size: .75em; padding: 0 .1em; }
 .request { background: var(--panel); border-radius: 6px; padding: .5rem .75rem; }
 pre.source { white-space: pre-wrap; word-break: break-word; font-family: inherit; font-size: 1rem; background: none; padding: 0; }
 mark { background: var(--mark); color: inherit; }
+.rich-frame { margin: 0 0 1.5rem; }
+.rich-frame iframe { width: 100%; height: min(80vh, 760px); border: 1px solid var(--line); border-radius: 8px; background: #000; display: block; }
 @media print { .status { break-inside: avoid; } a { color: inherit; } }
 `;
 
-export function htmlDocument(input: { title: string; lang?: string; body: string }): string {
+export function htmlDocument(input: { title: string; lang?: string; body: string; csp?: string }): string {
   return `<!doctype html>
 <html lang="${escapeHtml(input.lang ?? "und")}">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta http-equiv="Content-Security-Policy" content="${CONTENT_SECURITY_POLICY}">
+<meta http-equiv="Content-Security-Policy" content="${input.csp ?? CONTENT_SECURITY_POLICY}">
 <meta name="referrer" content="no-referrer">
 <title>${escapeHtml(input.title)}</title>
 <style>${STYLE}</style>

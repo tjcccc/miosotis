@@ -2,6 +2,23 @@
 
 Cross-session development log. Newest first. Keep entries short: what shipped, what was verified, what's open.
 
+## 2026-09-27 — v0.1.2 — Rich HTML artifacts
+
+- Add `format: "html"` artifacts: a host-authored, self-contained page stored verbatim next to a
+  required, cited Markdown summary. `data-cite` handles in the page are validated like `[@cN]`, and
+  the content hash and freeze trigger cover the page (migration 0003).
+- Open pages in `<iframe sandbox="allow-scripts">` (opaque origin) with an injected no-network CSP.
+  Pages must be self-contained: remote resources (including remote import-map entries), `<base>`, and
+  meta refresh are rejected before storage. The banner and summary stay outside the frame.
+- Decide against a built-in three.js: showcases are not core, so miosotis ships no page libraries.
+  A page embeds what it needs, and the Skill prefers Canvas/SVG/CSS. The roadmap records the agreed
+  future field `"assets": "embedded" | "linked"` (later `"localized"`) for opt-in linked pages.
+- `export --format html` writes the sandboxed viewer and `--format md` the summary. Update the
+  Skill (when and how to offer a rich page), the contracts reference, and the docs; add
+  `docs/roadmap.md` with the agreed output-format direction.
+- Pass `pnpm check`: 97 tests. Canvas and WebGL pages rendered inside the sandbox in headless
+  Chrome, where `fetch`, remote images, parent access, and `localStorage` were blocked.
+
 ## 2026-09-27 — v0.1.1 — Assign saved Sources to projects
 
 - Add `source assign <S-id…> --project <slug>`: explicit membership for already-saved Sources, the

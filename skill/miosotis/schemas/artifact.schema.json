@@ -38,11 +38,26 @@
       "maxLength": 2000,
       "description": "The user's request, verbatim"
     },
+    "format": {
+      "default": "markdown",
+      "description": "markdown = the Markdown body is the artifact; html = a self-contained interactive page plus the Markdown summary",
+      "type": "string",
+      "enum": [
+        "markdown",
+        "html"
+      ]
+    },
     "markdown": {
       "type": "string",
       "minLength": 1,
       "maxLength": 500000,
-      "description": "Body in Markdown. Cite evidence with [@c3]. Raw HTML is shown as text, never executed."
+      "description": "Body in Markdown (for format=html: the citable summary shown under the page). Cite evidence with [@c3]. Raw HTML is shown as text, never executed."
+    },
+    "html": {
+      "description": "format=html only: a complete, self-contained HTML page. No network: inline all CSS/JS (including any library, e.g. as data: modules in an import map) and embed images and fonts as data: URLs. Mark cited elements with data-cite=\"c3\".",
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 5000000
     },
     "limitations": {
       "default": [],

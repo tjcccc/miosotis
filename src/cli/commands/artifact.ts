@@ -56,7 +56,7 @@ export function registerArtifact(program: Command, runtime: CliRuntime): void {
       await runCommand(runtime, options.json, () => {
         const view = inLibrary(runtime, (context) => artifactView(context, id, { includeContent: options.content }));
         const lines = [
-          `${view.id} · ${view.intent} · ${view.lifecycle} · ${view.finalized_at}`,
+          `${view.id} · ${view.intent} · ${view.format} · ${view.lifecycle} · ${view.finalized_at}`,
           view.title ?? "",
           ...view.notices.map((n) => `! ${n}`),
         ];
@@ -85,7 +85,7 @@ export function registerArtifact(program: Command, runtime: CliRuntime): void {
         );
         const lines = page.artifacts.map(
           (row) =>
-            `${row.id}  ${row.finalized_at}  ${row.intent}  ${row.title ?? ""}${row.notices > 0 ? `  (${row.notices} notices)` : ""}${row.lifecycle === "active" ? "" : `  [${row.lifecycle}]`}`,
+            `${row.id}  ${row.finalized_at}  ${row.intent}${row.format === "html" ? " (html)" : ""}  ${row.title ?? ""}${row.notices > 0 ? `  (${row.notices} notices)` : ""}${row.lifecycle === "active" ? "" : `  [${row.lifecycle}]`}`,
         );
         lines.push(`${page.artifacts.length} of ${page.total}`);
         return { data: page, human: lines.join("\n") };
@@ -128,7 +128,9 @@ export function registerArtifact(program: Command, runtime: CliRuntime): void {
 
   artifact
     .command("export")
-    .description("Export stored content as Markdown, standalone HTML, or JSON (no model call)")
+    .description(
+      "Export stored content: md (Markdown body or summary), html (standalone viewer; rich pages stay sandboxed), json",
+    )
     .argument("<A-id>")
     .option("--format <format>", "md | html | json", "md")
     .option("--output <path>", "write to a file instead of stdout")

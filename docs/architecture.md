@@ -51,5 +51,6 @@ Search exists for the AI host, not as an end-user feature. It is language-agnost
 | Inputs | text | attachments, URLs, PDF, CSV/XLSX (v0.2) |
 | Interfaces | CLI + Skill | HTTP service (v0.4), Web UI |
 | AI | host agent via Skill | BYOK/subscription providers (v0.4) |
+| Artifacts | Markdown; sandboxed, self-contained HTML pages | multi-file artifacts, images/PDF/Office, deterministic exports (see `docs/roadmap.md`) |
 | Deletion | ignore / trash | purge with dependent cleanup (v0.3) |
 | Retrieval | FTS trigram + substring | optional embeddings attached to exact chunks |

@@ -3,7 +3,7 @@ name: miosotis
 description: Personal knowledge memory backed by the local `miosotis` CLI. Use when the user wants to save or remember a thought, note, or pasted article; find, review, or summarize what they saved; analyze or discuss their past notes and ideas; correct, ignore, or trash a saved note; regenerate or reopen a miosotis report; or when they mention miosotis, S-/A- IDs, or "my notes". Works in any language.
 compatibility: Requires the `miosotis` command (v0.1+) on PATH and a shell tool. Local library only.
 metadata:
-  version: "0.1.1"
+  version: "0.1.2"
 ---
 
 # miosotis
@@ -83,6 +83,17 @@ If the user attached a file or image you cannot pass as text, say that v0.1 stor
 7. Reply with a short summary, the artifact ID, and its path. Offer `miosotis artifact open <A-id>`, which refreshes the provenance banner and opens the browser without any model call.
 
 Treat the returned artifact as the active context for follow-ups. For a follow-up, re-read it with `miosotis artifact get <A-id> --json` and `miosotis evidence get <E-id> --json`; do not rely on memory of earlier turns. A new question such as "why did it change?" needs new evidence. Store the answer with `--derived-from <A-id>`.
+
+## Rich pages (interactive HTML)
+
+Offer one when the user asks for a visualization, an interactive demo, a 3D scene, or a showcase. Build it **from stored material**: first a review/evidence run, then the page.
+
+- `artifact create` with `"format": "html"`, a complete self-contained `html` page, **and** a Markdown `markdown` summary that cites `[@cN]`. The summary is shown under the page and keeps the artifact searchable and checkable.
+- **Self-contained, no network:** inline all CSS and JS, and embed images and fonts as `data:` URLs. Remote `src`/`href` for resources, CSS `url(http…)`, `@import`, and remote imports or import-map entries are rejected. The page runs in a sandbox with no network, storage, or parent access.
+- **Libraries:** prefer plain Canvas, SVG, or CSS. If a library such as three.js is really needed, embed it in the page: fetch the pinned file with your own tools, and build the request JSON with a script so the library never passes through your output. An import map of `data:` modules works. Tell the user a library makes the page large; they can ask for a lighter version instead.
+- Mark elements that show evidence-derived data with `data-cite="c3"` (handles from the same run). Use only numbers and facts from the evidence; count deterministically.
+- Pictures from the web are not supported until v0.2 (URL capture). Draw with code or use images the user provided as data.
+- Link it: `--derived-from <A-id>` when it visualizes an existing report. Reply with the ID and offer `miosotis artifact open <A-id>`.
 
 ## Govern
 

@@ -23,6 +23,7 @@ miosotis skill status
 - **Review / analysis / discuss:** multilingual query variants and deterministic enumeration for coverage, then exact evidence pins, then a cited Markdown artifact stored as static HTML.
 - **Govern:** resolves the exact source, corrects it with an expected-version check, and asks before trash.
 - **Regenerate:** new evidence, then a new artifact with `--derived-from` lineage.
+- **Rich pages:** self-contained interactive HTML (Canvas, SVG, or an embedded library) built from stored evidence, with a cited Markdown summary, opened in a sandbox.
 
 ## Verification status (v0.1.0)
 
