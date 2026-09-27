@@ -4,6 +4,7 @@ import { BlobStore } from "../infra/blobs/store.js";
 import { loadConfig } from "../infra/config/config.js";
 import { Database, probeSqlite } from "../infra/db/database.js";
 import { latestSchemaVersion, schemaVersion } from "../infra/db/migrate.js";
+import { skillStatus } from "./skill.js";
 
 export type CheckStatus = "ok" | "warn" | "fail";
 
@@ -126,6 +127,17 @@ export function runDoctor(options: { env?: NodeJS.ProcessEnv; version: string })
     db.close();
   }
   checks.push(...blobChecks(config.library.database, config.library.blobsDir));
+  for (const host of skillStatus({ env: options.env ?? process.env }).hosts) {
+    if (host.state === "outdated") {
+      checks.push({
+        name: `skill_${host.host}`,
+        status: "warn",
+        detail: `${host.label} Skill is outdated; run \`miosotis skill install --host ${host.host} --yes\``,
+      });
+    } else if (host.state === "copied" || host.state === "linked") {
+      checks.push({ name: `skill_${host.host}`, status: "ok", detail: `${host.label} Skill ${host.state}` });
+    }
+  }
   const staging = existsSync(config.library.stagingDir) ? readdirSync(config.library.stagingDir) : [];
   checks.push({
     name: "staging",

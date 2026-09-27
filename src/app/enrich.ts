@@ -100,6 +100,9 @@ export function prepareEnrichment(context: AppContext, reference: string) {
     timezone: version.timezone,
     kind: source.kind,
     text_origin: readable.origin,
+    /** True when a non-image file has no extracted text yet: extract it first (`miosotis extract apply`). */
+    extraction_needed:
+      source.kind === "file" && readable.origin === "none" && payloads.some((payload) => !isImage(payload.mime)),
     total_chars: readable.text.length,
     provided_chars: text.length,
     complete: text.length === readable.text.length,
@@ -126,6 +129,7 @@ export function prepareEnrichment(context: AppContext, reference: string) {
       "Suggest only existing project IDs; leave suggestions empty when unsure.",
       "Report coverage honestly when you read only part of the text.",
       "For images: look at the file and add `interpretations` bound to its sha256; transcribe only what is legible and mark uncertain readings.",
+      "If extraction_needed is true: read the file with your own tools, submit its text with `miosotis extract apply`, then prepare again.",
     ],
   };
 }

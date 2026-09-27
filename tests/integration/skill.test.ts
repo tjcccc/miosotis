@@ -2,7 +2,7 @@ import { existsSync, lstatSync, mkdirSync, mkdtempSync, readFileSync, rmSync, wr
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { installSkill, skillSourceDir, skillStatus, uninstallSkill } from "../../src/app/skill.js";
+import { installSkill, MARKER_FILE, skillSourceDir, skillStatus, uninstallSkill } from "../../src/app/skill.js";
 import { contractJsonSchemas } from "../../src/contracts/schemas.js";
 
 let home: string;
@@ -39,16 +39,44 @@ describe("skill package", () => {
 });
 
 describe("skill install", () => {
-  it("requires consent, links idempotently, and uninstalls only its own link", () => {
+  it("requires consent, copies an adapted Skill per host, and uninstalls only its own copy", () => {
     const env = { HOME: home };
     expect(() => installSkill({ host: "claude-code", yes: false, env })).toThrow(/--yes/);
-    const installed = installSkill({ host: "claude-code", yes: true, env });
-    expect(installed.target).toBe(join(home, ".claude", "skills", "miosotis"));
-    expect(lstatSync(installed.target).isSymbolicLink()).toBe(true);
+    const claude = installSkill({ host: "claude-code", yes: true, env });
+    expect(claude).toMatchObject({ mode: "copy", changed: true, target: join(home, ".claude", "skills", "miosotis") });
+    expect(lstatSync(claude.target).isSymbolicLink()).toBe(false);
+    const claudeSkill = readFileSync(join(claude.target, "SKILL.md"), "utf8");
+    expect(claudeSkill).toContain("Host notes (Claude Code)");
+    expect(claudeSkill).not.toContain("miosotis:host-notes");
+    expect(existsSync(join(claude.target, MARKER_FILE))).toBe(true);
+    expect(existsSync(join(claude.target, "references", "contracts.md"))).toBe(true);
+    const codex = installSkill({ host: "codex", yes: true, env });
+    expect(readFileSync(join(codex.target, "SKILL.md"), "utf8")).toContain("view_image");
+    expect(readFileSync(join(codex.target, "agents", "openai.yaml"), "utf8")).toContain("allow_implicit_invocation");
     expect(installSkill({ host: "claude-code", yes: true, env }).changed).toBe(false);
-    expect(skillStatus({ env }).hosts.find((h) => h.host === "claude-code")?.state).toBe("installed");
+    expect(skillStatus({ env }).hosts.map((h) => h.state)).toEqual(["copied", "copied"]);
     expect(uninstallSkill({ host: "claude-code", env }).changed).toBe(true);
-    expect(existsSync(installed.target)).toBe(false);
+    expect(existsSync(claude.target)).toBe(false);
+  });
+
+  it("detects an outdated copy and replaces it only with consent", () => {
+    const env = { HOME: home };
+    const installed = installSkill({ host: "codex", yes: true, env });
+    writeFileSync(join(installed.target, "SKILL.md"), "stale");
+    expect(skillStatus({ env }).hosts.find((h) => h.host === "codex")?.state).toBe("outdated");
+    expect(() => installSkill({ host: "codex", yes: false, env })).toThrow(/replace the installed/);
+    expect(installSkill({ host: "codex", yes: true, env }).changed).toBe(true);
+    expect(skillStatus({ env }).hosts.find((h) => h.host === "codex")?.state).toBe("copied");
+  });
+
+  it("supports a development symlink and migrates it to a copy", () => {
+    const env = { HOME: home };
+    const linked = installSkill({ host: "claude-code", yes: true, link: true, env });
+    expect(lstatSync(linked.target).isSymbolicLink()).toBe(true);
+    expect(skillStatus({ env }).hosts[0]?.state).toBe("linked");
+    installSkill({ host: "claude-code", yes: true, env });
+    expect(lstatSync(linked.target).isSymbolicLink()).toBe(false);
+    expect(readFileSync(join(skillSourceDir(), "SKILL.md"), "utf8")).toContain("miosotis:host-notes");
   });
 
   it("never replaces an existing non-miosotis entry", () => {

@@ -16,7 +16,7 @@ import {
 import { payloadsFor } from "../infra/db/repos/files.js";
 import { findProjectById } from "../infra/db/repos/projects.js";
 import { currentEnrichments, getSource, getSourceVersion } from "../infra/db/repos/sources.js";
-import { derivationText, readableText } from "./content.js";
+import { derivationText, describeLocator, readableText, spanLocator } from "./content.js";
 import { type AppContext, isoNow } from "./context.js";
 import { resolveProject } from "./projects.js";
 import { search } from "./search.js";
@@ -315,6 +315,8 @@ export function evidenceView(context: AppContext, id: string) {
         end: item.end_offset,
         origin: item.origin,
         kind: item.locator_json !== null ? "file" : item.derivation_id !== null ? "extracted_text" : "text",
+        /** Page/sheet/range of an extracted-text item, when the extraction recorded one. */
+        where: describeLocator(spanLocator(context, item.derivation_id, item.start_offset)) || null,
         derivation_id: item.derivation_id,
         locator: item.locator_json === null ? null : (JSON.parse(item.locator_json) as unknown),
         title:

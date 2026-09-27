@@ -30,6 +30,12 @@ miosotis is a single-user, local tool with no server, no network access, and no 
   - `linked`: three.js r128 from cdnjs and Google Fonts loaded, while `fetch` to the same allowed host and an image from another host were blocked.
 - The status banner and the cited summary live outside the frame, where the page cannot alter them.
 
+## Network and parsing stay with the host
+
+- miosotis makes no network requests and bundles no PDF, spreadsheet, or HTML parser. There is no SSRF surface in miosotis itself.
+- The AI host downloads web pages and extracts files with its own tools; the Skill tells it to fetch only URLs the user gave, http(s) only, without cookies or credentials, never local or private addresses, and with time and size limits.
+- The raw downloaded bytes are kept verbatim. Extracted text is labeled host-extracted with the tool used, so it is never mistaken for the original.
+
 ## Attached files
 
 - The CLI reads attachments from local paths given by the local user or host. The future HTTP service will accept uploaded bytes instead, never server-side paths.

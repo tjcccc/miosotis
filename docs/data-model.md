@@ -29,7 +29,10 @@ The schema lives in `src/infra/db/migrations/`. Schema version is tracked with `
 - `version_payloads` links a revision to its original bytes (append-only). A `file` Source's revision has empty `content_text`, `char_length` 0, and `content_digest` = `sha256:<blob>`.
 - One capture can create a group: the comment (a text Source) plus one file Source per attachment, joined by `source_links` rows of kind `references`.
 - Files are written and fsynced before the capture transaction. A failed transaction can leave an orphan blob, which `doctor` reports and never deletes; committed rows never point at missing files.
-- Extraction (phase B) stores extracted text as a blob-backed `extraction` derivation with its own `derived_chunks`. Images get `interpretation` derivations bound to the payload hash (`payload_sha256`).
+- Extraction stores text as a blob-backed `extraction` derivation with its own `derived_chunks`. Two paths produce it:
+  - Built-in importers (`src/infra/importers/registry.ts`; only text/Markdown ship) run right after capture, with method `parser`.
+  - For every other non-image file, the AI host extracts the text with its own tools and submits it through `extract apply`: method `host_agent`, pipeline `host.v1`, with `content_json.host_extracted`, the `tool`, the coverage, and a request digest so identical resubmits are no-ops.
+  - Host segments carry locators (`page`, `sheet`, `range`, `section`), stored on `derived_chunks.locator_json`. Chunks never cross a segment. Images get `interpretation` derivations bound to the payload hash (`payload_sha256`).
 - `evidence_items.derivation_id` pins a span of extracted text. `locator_json` `{"payload_sha256", "interpretation_id", …}` pins a whole payload such as an image, together with the interpretation in force when pinned. Its offsets are `0..1` and ignored.
 - File Sources cannot be corrected with text. To correct one, save the corrected file as a new Source, or correct the comment.
 

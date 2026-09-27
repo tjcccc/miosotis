@@ -64,23 +64,52 @@ export function registerSkill(program: Command, runtime: CliRuntime): void {
 
   skill
     .command("install")
-    .description("Symlink the Skill into the host's personal skills folder")
+    .description("Install (or update) the Skill in a host's personal skills folder, adapted to that host")
     .requiredOption("--host <host>", "claude-code | codex")
     .option("--yes", "confirm writing into the host's skills folder")
+    .option("--link", "symlink the repository's shared Skill instead of copying (development only; no host adaptation)")
+    .option(
+      "--allow-network",
+      "Codex: also set sandbox network_access = true (needed to save web links; affects all Codex commands)",
+    )
+    .option("--no-sandbox-config", "Codex: do not edit ~/.codex/config.toml")
     .option("--json", "print a JSON result envelope")
-    .action(async (options: JsonOption & { host: string; yes?: boolean }) => {
-      await runCommand(runtime, options.json, () => {
-        const result = installSkill({ host: options.host, yes: options.yes === true, env: runtime.env });
-        return {
-          data: result,
-          human: `${result.changed ? "Installed" : "Already installed"}: ${result.target} -> ${result.source}\n${result.next_step}`,
-        };
-      });
-    });
+    .action(
+      async (
+        options: JsonOption & {
+          host: string;
+          yes?: boolean;
+          link?: boolean;
+          allowNetwork?: boolean;
+          sandboxConfig: boolean;
+        },
+      ) => {
+        await runCommand(runtime, options.json, () => {
+          const result = installSkill({
+            host: options.host,
+            yes: options.yes === true,
+            link: options.link === true,
+            allowNetwork: options.allowNetwork === true,
+            configureSandbox: options.sandboxConfig,
+            env: runtime.env,
+            now: runtime.now(),
+          });
+          const lines = [
+            result.changed
+              ? `Installed (${result.mode}, v${result.version}). Changes:`
+              : `Already up to date (${result.mode}, v${result.version}); nothing changed.`,
+            ...result.changes.map((change) => `  - ${change}`),
+            ...result.notes.map((note) => `Note: ${note}`),
+            result.next_step,
+          ];
+          return { data: result, human: lines.join("\n") };
+        });
+      },
+    );
 
   skill
     .command("uninstall")
-    .description("Remove the Skill symlink (never touches anything else)")
+    .description("Remove miosotis's own installed Skill (never touches anything else)")
     .requiredOption("--host <host>", "claude-code | codex")
     .option("--json", "print a JSON result envelope")
     .action(async (options: JsonOption & { host: string }) => {
@@ -95,17 +124,19 @@ export function registerSkill(program: Command, runtime: CliRuntime): void {
 
   skill
     .command("status")
-    .description("Show where the Skill is installed")
+    .description("Show where the Skill is installed and whether each copy is up to date")
     .option("--json", "print a JSON result envelope")
     .action(async (options: JsonOption) => {
       await runCommand(runtime, options.json, () => {
         const status = skillStatus({ env: runtime.env });
-        return {
-          data: status,
-          human: [`source: ${status.source}`, ...status.hosts.map((h) => `${h.label}: ${h.state} (${h.target})`)].join(
-            "\n",
+        const lines = [
+          `miosotis v${status.version} · source: ${status.source}`,
+          ...status.hosts.map(
+            (h) =>
+              `${h.label}: ${h.state}${h.installed_version === null ? "" : ` (installed v${h.installed_version})`} · ${h.target}`,
           ),
-        };
+        ];
+        return { data: status, human: lines.join("\n") };
       });
     });
 }

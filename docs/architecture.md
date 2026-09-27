@@ -22,6 +22,8 @@ future HTTP service ───────────┤
 - `src/domain` and `src/contracts` import no Node APIs and nothing from `infra`, so the rules and contracts stay reusable by the v0.4 service and future clients.
 - `src/infra` implements storage and I/O. `infra` never imports `app` or `cli`. Only `src/infra/db/database.ts` imports `node:sqlite`.
 
+Built-in importers sit behind the small `Importer` interface in `src/infra/importers/registry.ts`, which is the plugin seam. Only the text/Markdown importer ships; everything else is extracted by the AI host and recorded through `extract apply`, keeping miosotis small.
+
 The core deliberately calls `infra` repositories directly instead of going through abstract repository interfaces: there is one storage engine, and the boundary that matters (interfaces over one core) is kept.
 
 ## Runtime model (v0.1)

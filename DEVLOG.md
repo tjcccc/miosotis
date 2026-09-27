@@ -2,6 +2,38 @@
 
 Cross-session development log. Newest first. Keep entries short: what shipped, what was verified, what's open.
 
+## 2026-09-27 — v0.2.0-alpha.2 — Host-assisted extraction
+
+- Keep miosotis small (owner decision): drop the planned bundled parsers and network client
+  (SheetJS, unpdf, csv-parse, Readability, undici). The AI host extracts files with its own tools.
+- Add `extract apply` (`miosotis.extraction.v1`): host-extracted text for a file, bound to its hash,
+  with the tool, coverage, and ordered page/sheet/range/section segments. Chunks never cross a
+  segment. Identical resubmits are no-ops; changes supersede, and cited artifacts show a notice.
+- Add `extract pending`. `enrich prepare` flags `extraction_needed`, and evidence items report `where`
+  (for example `p. 2`, `sheet Installs · A1:D4`), which artifact source lists show next to the
+  reference.
+- Web links: the host downloads the raw HTML and saves it as an attachment with `provenance`
+  (`supplied_url`, `final_url`, `fetched_at`, `fetch_tool`), then submits the main readable text.
+  miosotis makes no network requests.
+- Add an `Importer` plugin seam (`src/infra/importers/registry.ts`); the text/Markdown importer is
+  its only built-in.
+- `skill install` now copies a **host-adapted** Skill instead of symlinking: the shared
+  `skill/miosotis/` plus `skill/hosts/<host>/` (notes inserted into SKILL.md, extra files such as
+  Codex's `agents/openai.yaml`). A marker plus a content check detects outdated or hand-edited
+  copies (`skill status`, `doctor`), and `--link` stays for Skill development. The Codex version
+  covers `$miosotis` and `view_image`.
+- `skill install --host codex` also prepares Codex's sandbox. It adds the data folder to
+  `writable_roots`, and sets `network_access` only with `--allow-network` (global, so opt-in). The
+  config edit keeps the file's content, is verified, writes through symlinks, and makes a backup.
+  Every change is listed before and after. Config resolution now honors `HOME` from the passed
+  environment, so tests never read the real `~/.miosotis`.
+- The owner live-verified the cross-host flow: a note saved with `$miosotis` in Codex was retrieved
+  and dated with evidence by `/miosotis` in Claude Code, from the same library.
+- Pass `pnpm check`: 131 tests. Claude ran the flow live on a scratch library: it downloaded
+  example.com with curl, saved it with provenance, extracted the main text, and read a synthetic
+  workbook with openpyxl into per-sheet segments. The workbook is searchable by cell text, and a
+  pinned row reports its sheet and range.
+
 ## 2026-09-27 — v0.2.0-alpha.1 — Files and attachments
 
 - Add a content-addressed blob store (`data/blobs/sha256/…`): staged, fsynced, atomically renamed,

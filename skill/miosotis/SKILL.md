@@ -3,7 +3,7 @@ name: miosotis
 description: Personal knowledge memory backed by the local `miosotis` CLI. Use when the user wants to save or remember a thought, note, or pasted article; find, review, or summarize what they saved; analyze or discuss their past notes and ideas; correct, ignore, or trash a saved note; regenerate or reopen a miosotis report; or when they mention miosotis, S-/A- IDs, or "my notes". Works in any language.
 compatibility: Requires the `miosotis` command (v0.1+) on PATH and a shell tool. Local library only.
 metadata:
-  version: "0.2.0-alpha.1"
+  version: "0.2.0-alpha.2"
 ---
 
 # miosotis
@@ -27,6 +27,8 @@ miosotis keeps the user's material faithfully and lets you (the AI host) organiz
 - Never invent IDs, citation handles, URLs, model names, or dates. Use only what the CLI returned. Set `model` only if you know your model name reliably; otherwise omit it.
 - **Language:** once per session, run `miosotis prefs --json` and follow its `language_rule`. When no language is set, reply in the language the user writes in. Titles, abstracts, and artifacts follow the same language. Saved text is never translated, and `terms` stay multilingual. Keep receipts short; do not dump JSON or full abstracts unless asked.
 - If a command fails with `library_not_initialized`, tell the user to run `miosotis init` (or run it yourself if they agree).
+
+<!-- miosotis:host-notes -->
 
 ## Recognize the intent
 
@@ -56,7 +58,7 @@ miosotis keeps the user's material faithfully and lets you (the AI host) organiz
 
 **Files:** when the user refers to local files (images, Markdown/text, PDFs, spreadsheets), save them in the same request with `"attachments": [{"path": "/abs/path", "origin": "imported"|"user"}]`. Their words become the comment, and each file becomes its own Source linked to it.
 - Use only paths you actually have. An image shown in chat that you cannot access as a file is unavailable; say so and never invent a path.
-- Text and Markdown files are extracted immediately. PDFs and spreadsheets stay `extraction pending` until a later version, so report that honestly.
+- Text and Markdown files are extracted immediately. Other files (PDF, spreadsheets, HTML, Word, …) stay `extraction pending` until you extract them (see **Extract files**). Report the real state.
 - **Images:** `enrich prepare` lists `files[]` with a read-only `path`. Look at the image and add `interpretations` (bound to its `sha256`): a factual `description`, a verbatim `transcription` of legible text, and `observations` marked `clear` or `uncertain`. Never invent numbers you cannot read.
 
 ## Enrich
@@ -78,12 +80,28 @@ miosotis keeps the user's material faithfully and lets you (the AI host) organiz
 
 "Undo / 撤销 / 存错了" right after a save means `miosotis undo --json`. The first call returns `confirmation_required` together with the capture it would take back. Show the user those items, and after they agree run `miosotis undo --confirm --json`. This moves that capture (the comment and its files) to the trash; `miosotis source restore <S-id>` brings it back. Only the latest capture can be undone this way; older items are trashed by ID (see Govern).
 
-## Web links (until miosotis fetches pages itself)
+## Extract files
 
-miosotis does not fetch web pages yet (planned for 0.2.0-alpha.2). When the user saves a link, save their text verbatim, and put what is visible (URL, title, author, date) in `provenance`.
-- At save time, **offer once** to keep the article text as a separate `imported` Source.
-- Save it without asking only when a requested analysis or review needs it, and **say so in your reply**.
-- Text you fetched with your own tools is usually processed and **not verbatim**. Record that in `provenance.note` ("transcribed by the host from a web fetch; may not be verbatim"), never present it as the article's exact words, and repeat it in the artifact's `limitations`.
+miosotis bundles no PDF, spreadsheet, or HTML parser. You extract with your own tools, and miosotis records the result as **host-extracted**, bound to the exact file.
+1. Find the work: `miosotis extract pending --json` lists files with their read-only `path` and `payload_sha256`. So does `enrich prepare` (`extraction_needed: true`).
+2. Read the file with a tool you have: for example `pdftotext -layout` or `pypdf` for PDFs, `openpyxl` or `csv` for spreadsheets, `textutil -convert txt` (macOS) for Word/HTML, or Readability-style main-content extraction for web pages.
+   - Prefer tools already installed. To install a package, use a temporary environment, and ask before installing anything system-wide.
+   - If you can't extract a file, leave it pending and say so.
+3. Submit it with `miosotis extract apply --request-file - --json` (see `references/contracts.md`):
+   - `text`: the content in reading order. **It is not a summary:** keep the original wording.
+   - `segments`: one per PDF page (`{"page": n}`) or spreadsheet sheet (`{"sheet": …, "range": "A1:G551"}`, as TSV rows), so chunks and citations keep their location.
+   - `method.tool`: what you used.
+   - `coverage.complete: false` with a note if you extracted only part.
+4. Then enrich the file as usual. Identical resubmits are no-ops; a changed extraction supersedes the old one, and artifacts that cited it show a notice.
+
+## Web links
+
+When the user saves a link (`记一下 https://…`), keep their words verbatim as the comment and capture the page as a file:
+1. Download the raw HTML yourself. Only fetch URLs the user gave, http(s) only, with no cookies or credentials, and never local or private network addresses. For example:
+   `curl -sSL --max-time 30 --max-filesize 20000000 -o page.html -w '%{url_effective}' '<url>'`
+2. Save the comment plus `page.html` as an attachment, with `"provenance": {"supplied_url", "final_url", "fetched_at", "fetch_tool"}` on the attachment.
+3. Extract the page's **main readable content** (article text, not menus or ads) and submit it with `extract apply` (`method.tool` such as `"readability"` or `"manual reading"`).
+4. If the download fails (blocked, paywalled, JavaScript-only), keep the comment with the link, tell the user plainly, and never invent the page content. Saving the link again later adds a new snapshot rather than replacing the old one.
 
 ## Review, analysis, discuss
 

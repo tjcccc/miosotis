@@ -18,6 +18,13 @@ export const Provenance = z
       .strict()
       .optional(),
     note: z.string().min(1).max(1000).optional(),
+    final_url: z
+      .url({ protocol: /^https?$/ })
+      .max(2048)
+      .optional()
+      .describe("Where the supplied URL ended up after redirects"),
+    fetched_at: z.iso.datetime({ offset: true }).optional().describe("When the host downloaded the page"),
+    fetch_tool: z.string().min(1).max(120).optional().describe('e.g. "curl 8.7"'),
   })
   .strict()
   .describe("Observable origin metadata for imported or quoted material. Not a reliability judgement.");
@@ -40,6 +47,9 @@ export const CaptureRequest = z
             path: z.string().min(1).max(4096).describe("Local file path readable by the miosotis CLI"),
             filename: z.string().min(1).max(255).optional().describe("Display name; defaults to the file's base name"),
             origin: z.enum(["imported", "user"]).default("imported").describe("user = the user made this file"),
+            provenance: Provenance.optional().describe(
+              "Observable origin of this file, e.g. the URL a web page was downloaded from",
+            ),
           })
           .strict(),
       )

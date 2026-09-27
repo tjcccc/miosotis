@@ -3,12 +3,14 @@ import { ArtifactRequest, CorrectionRequest } from "./artifact.js";
 import { CaptureRequest } from "./capture.js";
 import { EnrichmentRequest } from "./enrichment.js";
 import { EvidenceRequest } from "./evidence.js";
+import { ExtractionRequest } from "./extraction.js";
 import { SearchRequest } from "./search.js";
 
 /** Request contracts published for AI hosts (generated into skill/miosotis/schemas/). */
 export const PUBLISHED_CONTRACTS = {
   capture: CaptureRequest,
   enrichment: EnrichmentRequest,
+  extraction: ExtractionRequest,
   search: SearchRequest,
   evidence: EvidenceRequest,
   artifact: ArtifactRequest,

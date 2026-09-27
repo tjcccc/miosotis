@@ -32,12 +32,13 @@ One grammar serves people and AI hosts. The v0.4 HTTP service will expose the sa
 
 | Area | Commands |
 |---|---|
-| Setup | `init [--data-dir] [--language <bcp47>]`, `doctor`, `prefs` (reply language, timezone for hosts), `skill install\|uninstall\|status --host claude-code\|codex` |
+| Setup | `init [--data-dir] [--language <bcp47>]`, `doctor`, `prefs` (reply language, timezone for hosts), `skill install [--link] [--allow-network] [--no-sandbox-config] --yes\|uninstall\|status --host claude-code\|codex` (host-adapted copies; for Codex, also prepares the sandbox and reports every change) |
 | Capture | `miosotis "text"` (shortcut), `save [text…] [--stdin] [--request-file] [--project] [--origin] [--idempotency-key] [--attach <path>]…` |
 | Sources | `source get <ref> [--range a:b] [--chunk n] [--max-chars n]`, `source list [--project] [--since] [--until] [--limit] [--cursor] [--all]`, `source history <S-id>` |
 | Undo | `undo [--confirm]`: moves the most recent capture group (comment and files) to the trash; reversible with `source restore` |
 | Governance | `source correct <S-id> --expected-version N --request-file`, `source assign <S-id…> --project <slug>`, `source unassign <S-id…> --project <slug>`, `source ignore <S-id> --reason`, `source include`, `source trash --confirm`, `source restore` |
 | Projects | `project list`, `project create <slug> [--name] [--description]` |
+| Extraction | `extract pending [--limit]` (files waiting for the host), `extract apply --request-file` (host-extracted text with page/sheet locators) |
 | Enrichment | `enrich pending [--limit]`, `enrich prepare <ref>`, `enrich apply --request-file` |
 | Retrieval | `search [terms…] [--project] [--match all\|any] [--limit] [--cursor]` or `--request-file` |
 | Evidence | `evidence prepare --request-file [--from E-id]`, `evidence get <E-id>` |

@@ -55,7 +55,7 @@ const ConfigFileSchema = z
 
 export function resolveHome(env: NodeJS.ProcessEnv = process.env): HomePaths {
   const override = env.MIOSOTIS_HOME?.trim();
-  const home = override ? resolve(expandTilde(override)) : join(homedir(), ".miosotis");
+  const home = override ? resolve(expandTilde(override)) : join(env.HOME?.trim() || homedir(), ".miosotis");
   return { home, configFile: join(home, CONFIG_FILENAME) };
 }
 

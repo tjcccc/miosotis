@@ -1,0 +1,5 @@
+interface:
+  display_name: miosotis
+  short_description: Save, find, and review your local notes and files with traceable citations
+policy:
+  allow_implicit_invocation: true

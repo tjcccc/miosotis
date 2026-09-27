@@ -27,7 +27,7 @@ Project instructions for Claude Code. `AGENTS.md` is a near-identical, self-cont
 
 - Full gate: `pnpm check` (typecheck → lint → build → test). The e2e tests run the built `dist/` CLI, so build before testing.
 - `pnpm format` applies Biome formatting.
-- After changing a request contract, run `pnpm gen:schemas` (regenerates `skill/miosotis/schemas/`); a test fails when they are stale. Keep `skill/miosotis/` (Skill behavior) in sync with CLI changes.
+- After changing a request contract, run `pnpm gen:schemas` (regenerates `skill/miosotis/schemas/`); a test fails when they are stale. Keep `skill/miosotis/` (shared Skill behavior) and `skill/hosts/<host>/` (per-host notes and files) in sync with CLI changes; reinstall with `miosotis skill install --host <host> --yes`.
 
 ## Versioning and docs
 

@@ -47,6 +47,7 @@ interface StagedFile {
   filename: string;
   origin: SourceOrigin;
   blob: StoredBlob;
+  provenance: unknown;
 }
 
 /** Filenames are display metadata only: base name, no control characters, bounded length. */
@@ -72,7 +73,12 @@ export function capture(context: AppContext, input: CaptureRequestInput, actor: 
   const text = request.text !== undefined && request.text.length > 0 ? request.text : undefined;
   const staged: StagedFile[] = request.attachments.map((attachment) => {
     const filename = safeFilename(attachment.filename ?? attachment.path);
-    return { filename, origin: attachment.origin, blob: context.blobs.putFile(attachment.path, filename) };
+    return {
+      filename,
+      origin: attachment.origin,
+      blob: context.blobs.putFile(attachment.path, filename),
+      provenance: attachment.provenance,
+    };
   });
   const requestDigest = digestOf({
     text,
@@ -81,7 +87,12 @@ export function capture(context: AppContext, input: CaptureRequestInput, actor: 
     provenance: request.provenance,
     client_captured_at: request.client_captured_at,
     timezone,
-    attachments: staged.map((file) => ({ sha256: file.blob.sha256, filename: file.filename, origin: file.origin })),
+    attachments: staged.map((file) => ({
+      sha256: file.blob.sha256,
+      filename: file.filename,
+      origin: file.origin,
+      provenance: file.provenance,
+    })),
   });
   const receipt = context.db.transaction((): CaptureReceipt => {
     if (request.idempotency_key !== undefined) {
@@ -172,7 +183,7 @@ export function capture(context: AppContext, input: CaptureRequestInput, actor: 
         content_text: "",
         content_digest: `sha256:${file.blob.sha256}`,
         char_length: 0,
-        provenance_json: null,
+        provenance_json: file.provenance === undefined ? null : JSON.stringify(file.provenance),
         received_at: at,
         client_captured_at: request.client_captured_at ?? null,
         timezone,
@@ -250,7 +261,7 @@ export function capture(context: AppContext, input: CaptureRequestInput, actor: 
   return {
     ...receipt,
     sources: receipt.sources.map((source) =>
-      source.kind === "file" && source.mime !== undefined && extractionPlan(source.mime) === "text"
+      source.kind === "file" && source.mime !== undefined && extractionPlan(source.mime) === "builtin"
         ? { ...source, processing: { ...source.processing, extraction: extractAfterCommit(context, source.id) } }
         : source,
     ),

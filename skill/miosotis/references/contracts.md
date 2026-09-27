@@ -55,6 +55,38 @@ Copy `source_ref` exactly from `enrich prepare`.
   - `stale_version`: the source was corrected. Run `enrich prepare` again.
   - `validation` about the digest: prepare again.
 
+## Extraction: `miosotis extract apply --request-file - --json`
+
+For a file Source whose extraction is pending (PDF, spreadsheet, HTML, …). Copy `payload_sha256` from `extract pending` or `source get`.
+
+```json
+{
+  "source_ref": { "id": "S-…", "version": 1, "payload_sha256": "<64 hex>" },
+  "method": { "tool": "pdftotext", "version": "24.02", "note": "-layout" },
+  "text": "Chapter one …\nChapter two …",
+  "segments": [
+    { "start": 0, "end": 1830, "locator": { "page": 1 } },
+    { "start": 1830, "end": 4102, "locator": { "page": 2 } }
+  ],
+  "coverage": { "complete": true },
+  "warnings": []
+}
+```
+
+- `text` is at most 2,000,000 chars. It is the file's content, not a summary.
+- `segments` (optional) are ordered, non-overlapping UTF-16 spans of `text`. A locator has any of `page`, `sheet`, `range`, `section`. Chunks never cross a segment, and evidence items report `where` (for example `p. 2`).
+- For spreadsheets, use one segment per sheet, with the rows as TSV and `{"sheet": "Worksheet", "range": "A1:G551"}`.
+- `coverage.complete: false` marks a partial extraction, for example `{"complete": false, "note": "pages 1-20 of 45"}`.
+- Images are rejected; use `interpretations` via `enrich apply`.
+- Resubmitting identical content returns `replayed: true`. Different content supersedes the previous extraction.
+
+A web page is saved as an attachment first, with provenance on the attachment:
+
+```json
+{"text": "关于函数式编程：https://example.com/a",
+ "attachments": [{"path": "/tmp/page.html", "provenance": {"supplied_url": "https://example.com/a", "final_url": "https://www.example.com/a/", "fetched_at": "2026-09-27T12:00:00Z", "fetch_tool": "curl 8.7"}}]}
+```
+
 ## Search: `miosotis search "<terms>" [--project p] [--match all|any] [--limit n] --json`
 
 - Returns candidates, not evidence. Each hit has `ref`, `title`, and `matches[].excerpt` with offsets.

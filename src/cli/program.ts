@@ -5,6 +5,7 @@ import { registerArtifact } from "./commands/artifact.js";
 import { registerDoctor } from "./commands/doctor.js";
 import { registerEnrich } from "./commands/enrich.js";
 import { registerEvidence } from "./commands/evidence.js";
+import { registerExtract } from "./commands/extract.js";
 import { registerInit } from "./commands/init.js";
 import { registerIntents } from "./commands/intents.js";
 import { registerBackup, registerPrefs, registerSkill, registerUndo } from "./commands/maintenance.js";
@@ -34,6 +35,7 @@ export function buildProgram(runtime: CliRuntime): Command {
   registerProject(program, runtime);
   registerSearch(program, runtime);
   registerEnrich(program, runtime);
+  registerExtract(program, runtime);
   registerEvidence(program, runtime);
   registerArtifact(program, runtime);
   registerBackup(program, runtime);

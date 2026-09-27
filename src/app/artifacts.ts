@@ -18,7 +18,7 @@ import { containedPath, ensureDir, writeFileAtomic } from "../infra/fs/files.js"
 import { extractCitations, renderMarkdown } from "../infra/render/markdown.js";
 import { artifactBody, htmlDocument, type StatusNotice, sourcePage, statusBanner } from "../infra/render/pages.js";
 import { inspectRichHtml, richContentSecurityPolicy, sandboxedDocument, sandboxFrame } from "../infra/render/rich.js";
-import { derivationText } from "./content.js";
+import { derivationText, describeLocator, spanLocator } from "./content.js";
 import { type AppContext, isoNow } from "./context.js";
 import { itemExcerpt, pinnedInterpretation, requireRun } from "./evidence.js";
 
@@ -98,6 +98,12 @@ export function createArtifact(context: AppContext, input: ArtifactRequestInput)
         handle,
         item,
         ref: formatSourceRef(item.source_id, item.version),
+        label: [
+          formatSourceRef(item.source_id, item.version),
+          describeLocator(spanLocator(context, item.derivation_id, item.start_offset)),
+        ]
+          .filter((part) => part.length > 0)
+          .join(" · "),
         excerpt: itemExcerpt(context, item, CITED_EXCERPT_LIMIT),
       };
     });
@@ -125,7 +131,7 @@ export function createArtifact(context: AppContext, input: ArtifactRequestInput)
       limitations: request.limitations,
       cited: cited.map((entry) => ({
         handle: entry.handle,
-        ref: entry.ref,
+        ref: entry.label,
         excerpt: entry.excerpt,
         sourcePage: sourcePagePath(entry.ref),
       })),

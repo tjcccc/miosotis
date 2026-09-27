@@ -6,7 +6,7 @@ miosotis is a local-first, AI-managed personal knowledge system. You express som
 - Tell Claude Code "remember this", "review my notes on X", or "correct that note", and the miosotis Skill saves, organizes, retrieves, and writes cited reports.
 - The CLI keeps the library local, faithful, and traceable.
 - Reports can be Markdown or interactive HTML pages, always sandboxed. Pages are self-contained by default, or `linked` to pinned CDN/font URLs on request.
-- Files can be saved with a note (`--attach`). Text and Markdown are extracted and searchable, and images are kept and interpreted by the AI host. PDFs, spreadsheets, and web pages come in the next 0.2 checkpoints. See `docs/roadmap.md`.
+- Files can be saved with a note (`--attach`). Text and Markdown are extracted and searchable, and images are kept and interpreted by the AI host. PDFs, spreadsheets, HTML, and web links are read by the AI host with its own tools and recorded as host-extracted text with page/sheet locators; miosotis itself stays offline. See `docs/roadmap.md`.
 
 ## Requirements
 
@@ -20,7 +20,8 @@ pnpm install
 pnpm build
 npm link                                         # global `miosotis` (links dist/; rerun pnpm build after changes)
 miosotis init                                    # creates ~/.miosotis (or $MIOSOTIS_HOME)
-miosotis skill install --host claude-code --yes  # links the Skill into ~/.claude/skills
+miosotis skill install --host claude-code --yes  # copies the Claude Code version into ~/.claude/skills
+miosotis skill install --host codex --yes        # copies the Codex version into ~/.agents/skills (see docs/skill.md for its sandbox)
 ```
 
 Then start a new Claude Code session and talk normally: "记一下…", "Review what I saved about ingestion", "That note is wrong, it should say…". See `docs/skill.md`.
@@ -75,7 +76,7 @@ miosotis artifact create --request-file - --derived-from A-<id> [--supersedes]  
 - The bare CLI has no model: saved text stays `enrichment pending` until an AI host applies enrichment.
 - Retrieval is keyword-based (any language); paraphrase recall depends on the host's query variants and multilingual enrichment terms.
 - Structural citation checks prove a citation points at pinned evidence, not that the sentence is supported by it.
-- Claude Code is the tested host. Codex install works but is unverified. There is no HTTP server or Web UI before v0.4.
+- Claude Code and Codex are both live-tested (a note saved in Codex was found from Claude Code). There is no HTTP server or Web UI before v0.4.
 - Ignore and trash are reversible. Permanent purge is v0.3.
 
 ## Development

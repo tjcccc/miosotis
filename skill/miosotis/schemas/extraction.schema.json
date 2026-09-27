@@ -1,0 +1,161 @@
+{
+  "$id": "miosotis.extraction.v1",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "schema": {
+      "type": "string",
+      "const": "miosotis.extraction.v1"
+    },
+    "source_ref": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "version": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        },
+        "payload_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$",
+          "description": "sha256 of the file you extracted (from source get)"
+        }
+      },
+      "required": [
+        "id",
+        "version",
+        "payload_sha256"
+      ],
+      "additionalProperties": false
+    },
+    "method": {
+      "type": "object",
+      "properties": {
+        "tool": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120,
+          "description": "What produced the text, e.g. \"pdftotext\", \"openpyxl\", \"readability\", \"manual reading\""
+        },
+        "version": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 60
+        },
+        "note": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 500
+        }
+      },
+      "required": [
+        "tool"
+      ],
+      "additionalProperties": false
+    },
+    "text": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 2000000,
+      "description": "The file's content as text, in reading order. Not a summary: keep the original wording."
+    },
+    "segments": {
+      "default": [],
+      "description": "Optional spans of `text` (UTF-16 offsets) with locators, e.g. one per page or sheet; chunks never cross them",
+      "maxItems": 5000,
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "start": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "end": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          "locator": {
+            "type": "object",
+            "properties": {
+              "page": {
+                "description": "1-based page number (PDF, slides)",
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 9007199254740991
+              },
+              "sheet": {
+                "description": "Spreadsheet sheet name",
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 200
+              },
+              "range": {
+                "description": "Cell range such as A1:G51",
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 64
+              },
+              "section": {
+                "description": "Heading or section title",
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 300
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "start",
+          "end",
+          "locator"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "coverage": {
+      "default": {
+        "complete": true
+      },
+      "type": "object",
+      "properties": {
+        "complete": {
+          "type": "boolean"
+        },
+        "note": {
+          "description": "e.g. \"pages 1-20 of 45\", \"first sheet only\"",
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 500
+        }
+      },
+      "required": [
+        "complete"
+      ],
+      "additionalProperties": false
+    },
+    "warnings": {
+      "default": [],
+      "maxItems": 20,
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 300
+      }
+    }
+  },
+  "required": [
+    "source_ref",
+    "method",
+    "text"
+  ],
+  "additionalProperties": false
+}

@@ -135,3 +135,33 @@ export function reindex(context: AppContext, sourceId: string): void {
   }
   replaceSearchRows(context.db, sourceId, version, rows);
 }
+
+/** Where an extracted-text span sits (page, sheet, range), from the chunk that contains it. */
+export function spanLocator(
+  context: AppContext,
+  derivationId: string | null,
+  start: number,
+): Record<string, unknown> | null {
+  if (derivationId === null) {
+    return null;
+  }
+  const chunk = context.db.get<{ locator_json: string | null }>(
+    "SELECT locator_json FROM derived_chunks WHERE derivation_id = ? AND start_offset <= ? AND end_offset > ? ORDER BY ordinal LIMIT 1",
+    [derivationId, start, start],
+  );
+  return chunk?.locator_json == null ? null : (JSON.parse(chunk.locator_json) as Record<string, unknown>);
+}
+
+export function describeLocator(locator: Record<string, unknown> | null): string {
+  if (locator === null) {
+    return "";
+  }
+  return [
+    typeof locator.page === "number" ? `p. ${locator.page}` : "",
+    typeof locator.sheet === "string" ? `sheet ${locator.sheet}` : "",
+    typeof locator.range === "string" ? locator.range : "",
+    typeof locator.section === "string" ? `§ ${locator.section}` : "",
+  ]
+    .filter((part) => part.length > 0)
+    .join(" · ");
+}
