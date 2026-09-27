@@ -1,0 +1,265 @@
+{
+  "$id": "miosotis.table-query.v1",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "schema": {
+      "type": "string",
+      "const": "miosotis.table-query.v1"
+    },
+    "inputs": {
+      "minItems": 1,
+      "maxItems": 50,
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "ref": {
+            "type": "string",
+            "minLength": 1,
+            "description": "S-… file Source with host-extracted tables (current or @vN)"
+          },
+          "table": {
+            "description": "Table/sheet name; required when the file has several",
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          }
+        },
+        "required": [
+          "ref"
+        ],
+        "additionalProperties": false
+      },
+      "description": "Tables to combine (rows are unioned by column name)"
+    },
+    "filters": {
+      "default": [],
+      "maxItems": 50,
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "column": {
+            "type": "string",
+            "minLength": 1
+          },
+          "op": {
+            "type": "string",
+            "enum": [
+              "eq",
+              "neq",
+              "in",
+              "not_in",
+              "gt",
+              "gte",
+              "lt",
+              "lte",
+              "contains",
+              "is_empty",
+              "not_empty",
+              "between"
+            ]
+          },
+          "value": {
+            "anyOf": [
+              {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "maxLength": 10000
+                  },
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "boolean"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              {
+                "maxItems": 1000,
+                "type": "array",
+                "items": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "maxLength": 10000
+                    },
+                    {
+                      "type": "number"
+                    },
+                    {
+                      "type": "boolean"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              }
+            ]
+          }
+        },
+        "required": [
+          "column",
+          "op"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "dedupe": {
+      "description": "Drop repeated records, e.g. the same event ID across cumulative snapshots",
+      "type": "object",
+      "properties": {
+        "by": {
+          "minItems": 1,
+          "maxItems": 10,
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "keep": {
+          "default": "first",
+          "type": "string",
+          "enum": [
+            "first",
+            "last"
+          ]
+        }
+      },
+      "required": [
+        "by"
+      ],
+      "additionalProperties": false
+    },
+    "group_by": {
+      "default": [],
+      "maxItems": 5,
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "column": {
+            "type": "string",
+            "minLength": 1
+          },
+          "grain": {
+            "description": "Bucket an ISO date column",
+            "type": "string",
+            "enum": [
+              "day",
+              "month",
+              "year"
+            ]
+          },
+          "as": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          }
+        },
+        "required": [
+          "column"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "aggregates": {
+      "default": [],
+      "maxItems": 20,
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "op": {
+            "type": "string",
+            "enum": [
+              "count",
+              "count_distinct",
+              "sum",
+              "min",
+              "max",
+              "avg"
+            ]
+          },
+          "column": {
+            "type": "string",
+            "minLength": 1
+          },
+          "as": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          }
+        },
+        "required": [
+          "op"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "select": {
+      "default": [],
+      "description": "Columns to return when not aggregating",
+      "maxItems": 100,
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "sort": {
+      "default": [],
+      "maxItems": 5,
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "by": {
+            "type": "string",
+            "minLength": 1
+          },
+          "dir": {
+            "default": "asc",
+            "type": "string",
+            "enum": [
+              "asc",
+              "desc"
+            ]
+          }
+        },
+        "required": [
+          "by"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "limit": {
+      "default": 1000,
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 10000
+    },
+    "save": {
+      "default": false,
+      "description": "Freeze the result as a citable dataset (T-…)",
+      "type": "boolean"
+    },
+    "note": {
+      "description": "What this calculation means, e.g. the grain and why dedupe applies",
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 1000
+    }
+  },
+  "required": [
+    "inputs"
+  ],
+  "additionalProperties": false
+}

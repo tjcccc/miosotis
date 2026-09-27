@@ -16,11 +16,19 @@ import { getSource, getSourceVersion } from "../infra/db/repos/sources.js";
 import { digestOf, sha256Hex } from "../infra/digest.js";
 import { containedPath, ensureDir, writeFileAtomic } from "../infra/fs/files.js";
 import { extractCitations, renderMarkdown } from "../infra/render/markdown.js";
-import { artifactBody, htmlDocument, type StatusNotice, sourcePage, statusBanner } from "../infra/render/pages.js";
+import {
+  artifactBody,
+  datasetPage,
+  htmlDocument,
+  type StatusNotice,
+  sourcePage,
+  statusBanner,
+} from "../infra/render/pages.js";
 import { inspectRichHtml, richContentSecurityPolicy, sandboxedDocument, sandboxFrame } from "../infra/render/rich.js";
 import { derivationText, describeLocator, spanLocator } from "./content.js";
 import { type AppContext, isoNow } from "./context.js";
 import { itemExcerpt, pinnedInterpretation, requireRun } from "./evidence.js";
+import { datasetInputs, datasetView } from "./tables.js";
 
 const CITED_EXCERPT_LIMIT = 600;
 /** Images up to this size are embedded as data: URIs in source pages. */
@@ -81,6 +89,15 @@ export function createArtifact(context: AppContext, input: ArtifactRequestInput)
     if (handles.length === 0) {
       warnings.push("The artifact cites no evidence.");
     }
+    const written = [
+      ...new Set([...request.markdown.matchAll(/\[@(c[1-9]\d{0,4})\]/g)].map((match) => match[1] ?? "")),
+    ];
+    const dropped = written.filter((handle) => !handles.includes(handle));
+    if (dropped.length > 0) {
+      warnings.push(
+        `Citation marker(s) ${dropped.map((h) => `[@${h}]`).join(", ")} were not recognized: they are inside code, or in a table cell beyond the header's columns. Move them into text or a regular cell.`,
+      );
+    }
     const cited = handles.map((handle) => {
       const item = items.get(handle);
       if (item === undefined) {
@@ -93,6 +110,25 @@ export function createArtifact(context: AppContext, input: ArtifactRequestInput)
           `${handle} cites ${item.source_id}, which is now ${source?.retention ?? "missing"}/${source?.inclusion ?? "missing"}; prepare evidence again`,
           { handle, source_id: item.source_id },
         );
+      }
+      const datasetId = datasetOf(item.locator_json);
+      if (datasetId !== undefined) {
+        for (const input of datasetInputs(context, datasetId)) {
+          const inputSource = getSource(context.db, input.source_id);
+          if (inputSource?.retention !== "retained" || inputSource.inclusion !== "included") {
+            throw new MiosotisError(
+              "validation",
+              `${handle} cites dataset ${datasetId}, whose input ${input.source_id} is no longer eligible`,
+            );
+          }
+        }
+        return {
+          handle,
+          item,
+          ref: datasetId,
+          label: `${datasetId} (calculated dataset)`,
+          excerpt: itemExcerpt(context, item, CITED_EXCERPT_LIMIT),
+        };
       }
       return {
         handle,
@@ -227,6 +263,7 @@ export type FreshnessSignal =
   | { kind: "source_revised"; source_id: string; used_version: number; current_version: number }
   | { kind: "extraction_replaced"; source_id: string; derivation_id: string; replaced_by: string }
   | { kind: "interpretation_replaced"; source_id: string; derivation_id: string; replaced_by: string }
+  | { kind: "dataset_inputs_changed"; dataset_id: string; inputs: string[] }
   | { kind: "source_unavailable"; source_id: string; retention: string; inclusion: string }
   | { kind: "new_material"; count: number; scope: string }
   | { kind: "superseded"; by: string }
@@ -306,6 +343,27 @@ export function freshness(context: AppContext, artifact: ArtifactRow): Freshness
       });
     }
   }
+  for (const citation of citations) {
+    const datasetId = datasetOf(citation.locator_json);
+    if (datasetId === undefined || replaced.has(datasetId)) {
+      continue;
+    }
+    const changed = datasetView(context, datasetId).inputs.filter(
+      (input) =>
+        input.extraction_replaced ||
+        input.retention !== "retained" ||
+        input.inclusion !== "included" ||
+        input.current_version !== Number(input.ref.split("@v")[1]),
+    );
+    if (changed.length > 0) {
+      replaced.add(datasetId);
+      signals.push({
+        kind: "dataset_inputs_changed",
+        dataset_id: datasetId,
+        inputs: changed.map((input) => input.ref),
+      });
+    }
+  }
   const run = requireRun(context, artifact.evidence_run_id);
   const pinned = [...new Set(getEvidenceItems(context.db, run.id).map((item) => item.source_id))];
   const params: (string | number)[] = [run.watermark_seq];
@@ -359,6 +417,11 @@ export function describeSignal(signal: FreshnessSignal): StatusNotice {
       return {
         level: "info",
         text: `An image in ${signal.source_id} was re-interpreted since this artifact was made; the pinned interpretation is still shown.`,
+      };
+    case "dataset_inputs_changed":
+      return {
+        level: "warn",
+        text: `Dataset ${signal.dataset_id} was calculated from input(s) that changed since (${signal.inputs.join(", ")}); its frozen numbers are still shown. Re-run the query to update.`,
       };
     case "trashed":
       return { level: "warn", text: "This artifact is in the trash." };
@@ -483,7 +546,13 @@ export function materializeArtifact(context: AppContext, id: string): { path: st
   writeFileAtomic(join(directory, "index.html"), viewerDocument(artifact, statusBanner(notices, isoNow(context))));
   const citations = getCitations(context.db, artifact.id);
   const byRevision = new Map<string, typeof citations>();
+  const datasetPages = new Map<string, string[]>();
   for (const citation of citations) {
+    const datasetId = datasetOf(citation.locator_json);
+    if (datasetId !== undefined) {
+      datasetPages.set(datasetId, [...(datasetPages.get(datasetId) ?? []), citation.handle]);
+      continue;
+    }
     const ref = formatSourceRef(citation.source_id, citation.version);
     byRevision.set(ref, [...(byRevision.get(ref) ?? []), citation]);
   }
@@ -549,6 +618,24 @@ export function materializeArtifact(context: AppContext, id: string): { path: st
           end: citation.end_offset,
         })),
         images,
+        backLink: "../index.html",
+      }),
+    );
+  }
+  for (const [datasetId, handles] of datasetPages) {
+    const view = datasetView(context, datasetId);
+    writeFileAtomic(
+      containedPath(sourcesDir, `${datasetId}.html`),
+      datasetPage({
+        id: view.id,
+        handles,
+        createdAt: view.created_at,
+        columns: view.columns,
+        rows: view.rows,
+        lineage: view.lineage,
+        spec: view.spec,
+        inputs: view.inputs.map((input) => `${input.ref} · ${input.table}`),
+        warnings: view.warnings,
         backLink: "../index.html",
       }),
     );
@@ -653,4 +740,12 @@ export function trashArtifact(context: AppContext, id: string, options: { confir
     recordAudit(context.db, { at, actor: "user", operation: "artifact.trash", subjectIds: [artifact.id] });
   });
   return { id: artifact.id, lifecycle: "trashed", changed: true, sources_affected: 0 };
+}
+
+function datasetOf(locatorJson: string | null): string | undefined {
+  if (locatorJson === null) {
+    return undefined;
+  }
+  const locator = JSON.parse(locatorJson) as { dataset_id?: string };
+  return locator.dataset_id;
 }

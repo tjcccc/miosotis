@@ -36,6 +36,13 @@ The schema lives in `src/infra/db/migrations/`. Schema version is tracked with `
 - `evidence_items.derivation_id` pins a span of extracted text. `locator_json` `{"payload_sha256", "interpretation_id", …}` pins a whole payload such as an image, together with the interpretation in force when pinned. Its offsets are `0..1` and ignored.
 - File Sources cannot be corrected with text. To correct one, save the corrected file as a new Source, or correct the comment.
 
+## Tables and datasets (migration 0006)
+
+- A host extraction may carry structured `tables` (name, columns, rows, physical `header_row`/`first_row`, locator, notes), stored as a JSON blob referenced from the extraction (`content_json.tables_blob`). The summary lives in `content_json.tables`.
+- `table query` runs the pure engine in `src/domain/tables.ts` over one or more tables (union by column name): filters, dedupe by key, grouping (date grain day/month/year), aggregates (count, count_distinct, sum with decimal-safe rounding, min, max, avg), select, sort, limit. Every output row keeps lineage to `S-…@vN Sheet!row`.
+- Ambiguity is reported, not guessed. Warnings cover combining several tables without dedupe, rows without a usable date (left out, never counted as zero), empty keys, and skipped non-numeric values.
+- `datasets` (`T-…`) and `dataset_inputs` freeze a result, its spec, and its exact inputs (source revision plus extraction), and both are immutable. Evidence pins a dataset as a whole-dataset item (`locator_json {"dataset_id"}`, anchored on its first input). A "dataset inputs changed" notice appears when an input is revised, excluded, or re-extracted.
+
 ## Derived data
 
 - `chunks` stores contiguous, non-overlapping paragraph spans (UTF-16 offsets, never splitting a surrogate pair) for every revision, so pinned evidence always resolves.

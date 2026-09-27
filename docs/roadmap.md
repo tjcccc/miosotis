@@ -10,7 +10,8 @@ Direction agreed with the owner on 2026-09-27. Versions follow SemVer; minor ver
 | 0.1.3 | `"assets": "linked"` for HTML artifacts: pinned, allowlisted CDN and font URLs, frozen hosts, a network banner | done |
 | 0.2.0-alpha.1 | File store, attachments (comment + files as one capture group), text/Markdown extraction, image interpretation by the host, file evidence, backup/doctor with blobs | done |
 | 0.2.0-alpha.2 | Host-assisted extraction (`extract apply`): the AI host extracts PDFs, spreadsheets, HTML, and other files with its own tools, and miosotis stores the result as host-extracted text with page/sheet locators. Web links: the host saves the raw HTML plus URL provenance and submits the main text. An importer plugin seam. No new dependencies; miosotis itself stays offline. | done |
-| 0.2.0 | Deterministic table operations over host-submitted tables, monthly-dataset semantics, multi-file artifacts; release | planned |
+| 0.2.0-alpha.3 | Deterministic table operations over host-submitted tables (`table query`, frozen datasets `T-…`, row lineage, ambiguity warnings), monthly-snapshot semantics | done |
+| 0.2.0 | Multi-file artifacts (host-built decks, PDFs, images), shareable-release step; release | next |
 | 0.2.x | Deterministic exports of stored content: Markdown → PDF (headless print) and DOCX; tables → CSV/XLSX | planned |
 | 0.3.0 | Purge with a reviewable cleanup plan, restore hardening, full security test set, Codex Skill verification | planned |
 | 0.4.0 | Local HTTP service over the same use cases; BYOK and local providers via `@priest-ai/core`; standalone `miosotis "…"` with AI | planned |

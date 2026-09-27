@@ -2,6 +2,26 @@
 
 Cross-session development log. Newest first. Keep entries short: what shipped, what was verified, what's open.
 
+## 2026-09-27 — v0.2.0-alpha.3 — Deterministic tables
+
+- Hosts can submit structured `tables` with `extract apply`: columns, rows, physical row numbers, and
+  locators, stored with the extraction.
+- Add the pure calculation engine (`src/domain/tables.ts`) and `table query`: filters, dedupe by key,
+  date-grain grouping, count/count_distinct/sum/min/max/avg, select, sort, limit. Each output row
+  keeps lineage to `Sheet!row`. It warns on snapshots combined without dedupe and on undated rows (never
+  counted as zero), and sums are decimal-safe.
+- Add `--save`, which freezes a dataset `T-…` (migration 0006). Evidence pins datasets; artifacts cite
+  them and link a dataset page (result, spec, inputs, warnings, lineage); a "dataset inputs changed"
+  notice appears when an input changes. `table get` shows a dataset.
+- `artifact create` now warns about `[@cN]` markers that didn't parse as citations (inside code, or
+  in a table cell beyond the header's columns).
+- Skill: extract spreadsheets with `tables`, never do report arithmetic, check the grain before
+  combining files, and cite frozen datasets.
+- The Codex install note about network access now reflects the actual config.
+- Pass `pnpm check`: 140 tests, including scenario H end to end (cumulative snapshots → Jan 2 / Feb 1
+  / Mar 2 after dedupe; the naive union warns). Live on a scratch library: a synthetic workbook read
+  with openpyxl gave counts and averages identical to an independent Python calculation.
+
 ## 2026-09-27 — v0.2.0-alpha.2 — Host-assisted extraction
 
 - Keep miosotis small (owner decision): drop the planned bundled parsers and network client

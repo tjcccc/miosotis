@@ -51,6 +51,7 @@ export const EvidenceRequest = z
       .max(100)
       .default([])
       .describe("Pin exact passages you read in full"),
+    datasets: z.array(z.string().min(1)).max(20).default([]).describe("Frozen table-query results (T-…) to cite"),
     max_items: z.number().int().min(1).max(200).default(60),
   })
   .strict();

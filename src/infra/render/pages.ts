@@ -201,3 +201,43 @@ function highlight(text: string, spans: { handle: string; start: number; end: nu
     .map((span) => `<span id="span-${span.handle}"></span>`);
   return missing.join("") + html;
 }
+
+/** A frozen calculation: the result table, how it was computed, and the input rows behind each line. */
+export function datasetPage(input: {
+  id: string;
+  handles: string[];
+  createdAt: string;
+  columns: string[];
+  rows: (string | number | boolean | null)[][];
+  lineage: { rows: string[]; truncated: boolean }[];
+  spec: unknown;
+  inputs: string[];
+  warnings: string[];
+  backLink: string;
+}): string {
+  const header = `<tr>${input.columns.map((column) => `<th>${escapeHtml(column)}</th>`).join("")}<th>input rows</th></tr>`;
+  const body = input.rows
+    .map((row, index) => {
+      const lineage = input.lineage[index];
+      const rowsText = lineage === undefined ? "" : `${lineage.rows.join(", ")}${lineage.truncated ? " …" : ""}`;
+      return `<tr>${row.map((cell) => `<td>${escapeHtml(cell === null ? "" : String(cell))}</td>`).join("")}<td><small>${escapeHtml(rowsText)}</small></td></tr>`;
+    })
+    .join("");
+  const warnings =
+    input.warnings.length === 0
+      ? ""
+      : `<section class="status warn"><ul>${input.warnings.map((w) => `<li>${escapeHtml(w)}</li>`).join("")}</ul></section>`;
+  return htmlDocument({
+    title: input.id,
+    body: `<p><a href="${escapeHtml(input.backLink)}">← Back to the artifact</a></p>
+<h1 id="${escapeHtml(input.handles[0] ?? "")}">${escapeHtml(input.id)}</h1>
+${input.handles.map((handle) => `<span id="span-${escapeHtml(handle)}"></span>`).join("")}
+<p class="meta"><span>calculated dataset</span><span>${escapeHtml(input.createdAt)}</span><span>computed by miosotis, not by the model</span></p>
+${warnings}
+<table>${header}${body}</table>
+<h2>How it was calculated</h2>
+<pre>${escapeHtml(JSON.stringify(input.spec, null, 2))}</pre>
+<h2>Inputs</h2>
+<ul>${input.inputs.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>`,
+  });
+}

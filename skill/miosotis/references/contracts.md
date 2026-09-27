@@ -75,7 +75,11 @@ For a file Source whose extraction is pending (PDF, spreadsheet, HTML, …). Cop
 
 - `text` is at most 2,000,000 chars. It is the file's content, not a summary.
 - `segments` (optional) are ordered, non-overlapping UTF-16 spans of `text`. A locator has any of `page`, `sheet`, `range`, `section`. Chunks never cross a segment, and evidence items report `where` (for example `p. 2`).
-- For spreadsheets, use one segment per sheet, with the rows as TSV and `{"sheet": "Worksheet", "range": "A1:G551"}`.
+- For spreadsheets, use one segment per sheet, with the rows as TSV and `{"sheet": "Worksheet", "range": "A1:G551"}`, **and** a structured table per sheet:
+  ```json
+  "tables": [{"name": "Worksheet", "locator": {"sheet": "Worksheet", "range": "A1:G551"}, "columns": ["Name", "Author", "Year", "Genre"], "header_row": 1, "rows": [["10-Day Green Smoothie Cleanse", "JJ Smith", 2016, "Non Fiction"]], "notes": "no hidden rows"}]
+  ```
+  Cells are strings, numbers, booleans, or null (at most 2,000,000 cells in total). `first_row` defaults to `header_row + 1`.
 - `coverage.complete: false` marks a partial extraction, for example `{"complete": false, "note": "pages 1-20 of 45"}`.
 - Images are rejected; use `interpretations` via `enrich apply`.
 - Resubmitting identical content returns `replayed: true`. Different content supersedes the previous extraction.
@@ -86,6 +90,26 @@ A web page is saved as an attachment first, with provenance on the attachment:
 {"text": "关于函数式编程：https://example.com/a",
  "attachments": [{"path": "/tmp/page.html", "provenance": {"supplied_url": "https://example.com/a", "final_url": "https://www.example.com/a/", "fetched_at": "2026-09-27T12:00:00Z", "fetch_tool": "curl 8.7"}}]}
 ```
+
+## Table query: `miosotis table query --request-file - [--save] --json`
+
+```json
+{
+  "inputs": [{ "ref": "S-JAN" }, { "ref": "S-FEB" }, { "ref": "S-MAR", "table": "Installs" }],
+  "dedupe": { "by": ["Event"], "keep": "first" },
+  "filters": [{ "column": "Customer", "op": "neq", "value": "Test" }],
+  "group_by": [{ "column": "Installed", "grain": "month", "as": "month" }],
+  "aggregates": [{ "op": "count", "as": "new installations" }],
+  "sort": [{ "by": "month", "dir": "asc" }],
+  "note": "Cumulative monthly snapshots; deduped by event ID; grouped by install date.",
+  "save": true
+}
+```
+
+- Filter `op`: `eq`, `neq`, `in`, `not_in`, `gt`, `gte`, `lt`, `lte`, `between`, `contains`, `is_empty`, `not_empty`.
+- The result has `columns`, `rows`, `lineage[i].rows` (for example `S-…@v1 Installs!4`), `stats` (input rows, rows removed by dedupe), and `warnings`. With `save`, it also has `dataset_id` (`T-…`).
+- `miosotis table get T-…` shows a frozen dataset and whether any input changed since.
+- Cite it: `evidence prepare` with `"datasets": ["T-…"]` returns an item with `kind: "dataset"`.
 
 ## Search: `miosotis search "<terms>" [--project p] [--match all|any] [--limit n] --json`
 

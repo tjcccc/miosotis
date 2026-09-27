@@ -16,7 +16,12 @@ import { homedir } from "node:os";
 import { dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { MiosotisError } from "../domain/errors.js";
-import { codexConfigPath, configureCodexSandbox, planCodexSandboxEdit } from "../infra/config/codex-config.js";
+import {
+  codexConfigPath,
+  codexNetworkEnabled,
+  configureCodexSandbox,
+  planCodexSandboxEdit,
+} from "../infra/config/codex-config.js";
 import { loadConfig } from "../infra/config/config.js";
 import { ensureDir } from "../infra/fs/files.js";
 import { VERSION } from "../version.js";
@@ -242,7 +247,7 @@ export function installSkill(options: InstallOptions) {
       version: VERSION,
       changed: false,
       changes: [] as string[],
-      notes: hostNotes(host, sandbox),
+      notes: hostNotes(host, sandbox, env),
       next_step: restartHint(host),
     };
   }
@@ -301,19 +306,19 @@ export function installSkill(options: InstallOptions) {
     version: VERSION,
     changed: true,
     changes,
-    notes: hostNotes(host, sandbox),
+    notes: hostNotes(host, sandbox, env),
     next_step: restartHint(host),
   };
 }
 
-function hostNotes(host: SkillHost, sandbox: { allowNetwork: boolean } | undefined): string[] {
+function hostNotes(host: SkillHost, sandbox: { allowNetwork: boolean } | undefined, env: NodeJS.ProcessEnv): string[] {
   if (host !== "codex") {
     return [];
   }
   const notes = [
     'Codex applies writable_roots when it runs in workspace-write ("Auto") mode; in read-only mode it asks before each write.',
   ];
-  if (sandbox !== undefined && !sandbox.allowNetwork) {
+  if (sandbox !== undefined && !sandbox.allowNetwork && !codexNetworkEnabled(env)) {
     notes.push(
       "Network access was not changed. Saving web links needs it: re-run with --allow-network (affects all sandboxed Codex commands).",
     );

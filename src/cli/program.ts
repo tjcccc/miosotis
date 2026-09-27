@@ -13,6 +13,7 @@ import { registerProject } from "./commands/project.js";
 import { collect, registerSave, type SaveOptions, saveAction } from "./commands/save.js";
 import { registerSearch } from "./commands/search.js";
 import { registerSource } from "./commands/source.js";
+import { registerTable } from "./commands/table.js";
 import { emitError, type OutputStreams, processStreams } from "./output/result.js";
 import { type CliRuntime, runCommand } from "./runtime.js";
 
@@ -37,6 +38,7 @@ export function buildProgram(runtime: CliRuntime): Command {
   registerEnrich(program, runtime);
   registerExtract(program, runtime);
   registerEvidence(program, runtime);
+  registerTable(program, runtime);
   registerArtifact(program, runtime);
   registerBackup(program, runtime);
   registerUndo(program, runtime);

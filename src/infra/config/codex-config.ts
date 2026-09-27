@@ -125,3 +125,12 @@ export function configureCodexSandbox(
   writeFileAtomic(realPath, plan.text, 0o600);
   return { path, real_path: realPath, backup, changes: plan.changes };
 }
+
+/** Whether the user's Codex config already allows network access for sandboxed commands. */
+export function codexNetworkEnabled(env: NodeJS.ProcessEnv): boolean {
+  const path = codexConfigPath(env);
+  if (!existsSync(path)) {
+    return false;
+  }
+  return readTable(readFileSync(realpathSync(path), "utf8"))?.network_access === true;
+}

@@ -141,6 +141,114 @@
       ],
       "additionalProperties": false
     },
+    "tables": {
+      "default": [],
+      "description": "Optional structured tables (spreadsheets, CSV) so miosotis can calculate deterministically",
+      "maxItems": 50,
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200,
+            "description": "Sheet or table name; unique within this file"
+          },
+          "locator": {
+            "type": "object",
+            "properties": {
+              "page": {
+                "description": "1-based page number (PDF, slides)",
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 9007199254740991
+              },
+              "sheet": {
+                "description": "Spreadsheet sheet name",
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 200
+              },
+              "range": {
+                "description": "Cell range such as A1:G51",
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 64
+              },
+              "section": {
+                "description": "Heading or section title",
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 300
+              }
+            },
+            "additionalProperties": false
+          },
+          "columns": {
+            "minItems": 1,
+            "maxItems": 300,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "maxLength": 300
+            },
+            "description": "Header texts as in the file (or names you gave when there is no header)"
+          },
+          "header_row": {
+            "default": 1,
+            "description": "Physical row of the header (0 = no header row)",
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "first_row": {
+            "description": "Physical row number of rows[0]; defaults to header_row + 1",
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          "rows": {
+            "maxItems": 100000,
+            "type": "array",
+            "items": {
+              "maxItems": 300,
+              "type": "array",
+              "items": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "maxLength": 10000
+                  },
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "boolean"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "description": "Cell values in column order; dates as ISO strings (YYYY-MM-DD); never computed by you"
+          },
+          "notes": {
+            "description": "Hidden rows/sheets, merged headers, formula caches, etc.",
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 1000
+          }
+        },
+        "required": [
+          "name",
+          "columns",
+          "rows"
+        ],
+        "additionalProperties": false
+      }
+    },
     "warnings": {
       "default": [],
       "maxItems": 20,

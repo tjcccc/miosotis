@@ -141,6 +141,7 @@ export interface HostExtractionReceipt {
   state: "complete" | "partial";
   chars: number;
   chunks: number;
+  tables: { name: string; columns: number; rows: number }[];
   replaced: string | null;
 }
 
@@ -157,6 +158,7 @@ export function applyHostExtraction(context: AppContext, input: ExtractionReques
     segments: request.segments,
     method: request.method,
     coverage: request.coverage,
+    tables: request.tables,
   });
   return context.db.transaction(() => {
     const source = requireSource(context, sourceId);
@@ -193,12 +195,23 @@ export function applyHostExtraction(context: AppContext, input: ExtractionReques
         state: previous.status,
         chars: request.text.length,
         chunks: derivedChunks(context.db, previous.id).length,
+        tables: [],
         replaced: null,
       };
     }
     const at = isoNow(context);
     const stored = context.blobs.putBytes(Buffer.from(request.text, "utf8"), "extracted.txt");
     insertBlob(context.db, { sha256: stored.sha256, size: stored.size, mime: "text/plain", at });
+    const tables = request.tables.map((table) => ({
+      ...table,
+      first_row: table.first_row ?? table.header_row + 1,
+    }));
+    let tablesBlob: string | null = null;
+    if (tables.length > 0) {
+      const tableBytes = context.blobs.putBytes(Buffer.from(JSON.stringify({ tables }), "utf8"), "tables.json");
+      insertBlob(context.db, { sha256: tableBytes.sha256, size: tableBytes.size, mime: "application/json", at });
+      tablesBlob = tableBytes.sha256;
+    }
     const derivationId = newId("derivation", context.now().getTime());
     const status = request.coverage.complete ? "complete" : "partial";
     insertDerivedRecord(context.db, {
@@ -221,6 +234,16 @@ export function applyHostExtraction(context: AppContext, input: ExtractionReques
         warnings: request.warnings,
         chars: request.text.length,
         request_digest: requestDigest,
+        tables_blob: tablesBlob,
+        tables: tables.map((table) => ({
+          name: table.name,
+          locator: table.locator ?? null,
+          columns: table.columns,
+          rows: table.rows.length,
+          header_row: table.header_row,
+          first_row: table.first_row,
+          notes: table.notes ?? null,
+        })),
       }),
       superseded_by: null,
       created_at: at,
@@ -268,6 +291,7 @@ export function applyHostExtraction(context: AppContext, input: ExtractionReques
       state: status,
       chars: request.text.length,
       chunks: spans.length,
+      tables: tables.map((table) => ({ name: table.name, columns: table.columns.length, rows: table.rows.length })),
       replaced: previous?.id ?? null,
     };
   });

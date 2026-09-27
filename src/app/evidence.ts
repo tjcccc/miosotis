@@ -21,6 +21,7 @@ import { type AppContext, isoNow } from "./context.js";
 import { resolveProject } from "./projects.js";
 import { search } from "./search.js";
 import { requireSource, requireVersion, titleOf } from "./sources.js";
+import { datasetExcerpt, datasetInputs, requireDataset } from "./tables.js";
 
 export const EVIDENCE_STRATEGY_VERSION = "evidence.v1";
 const EXCERPT_LIMIT = 2000;
@@ -189,6 +190,26 @@ export function prepareEvidence(context: AppContext, input: EvidenceRequestInput
       });
     }
   }
+  for (const datasetId of request.datasets) {
+    const dataset = requireDataset(context, datasetId);
+    const inputs = datasetInputs(context, dataset.id);
+    for (const input of inputs) {
+      eligibleRevision(context, formatSourceRef(input.source_id, input.version), project?.id);
+    }
+    const anchor = inputs[0];
+    if (anchor === undefined) {
+      throw new MiosotisError("validation", `${dataset.id} has no inputs`);
+    }
+    add({
+      source_id: anchor.source_id,
+      version: anchor.version,
+      start: 0,
+      end: 1,
+      origin: "source_ref",
+      derivationId: null,
+      locator: { dataset_id: dataset.id },
+    });
+  }
   for (const pin of request.quotes) {
     const { id, version } = eligibleRevision(context, pin.ref, project?.id);
     const readable = readableText(context, id, version);
@@ -314,7 +335,13 @@ export function evidenceView(context: AppContext, id: string) {
         start: item.start_offset,
         end: item.end_offset,
         origin: item.origin,
-        kind: item.locator_json !== null ? "file" : item.derivation_id !== null ? "extracted_text" : "text",
+        kind: item.locator_json?.includes('"dataset_id"')
+          ? "dataset"
+          : item.locator_json !== null
+            ? "file"
+            : item.derivation_id !== null
+              ? "extracted_text"
+              : "text",
         /** Page/sheet/range of an extracted-text item, when the extraction recorded one. */
         where: describeLocator(spanLocator(context, item.derivation_id, item.start_offset)) || null,
         derivation_id: item.derivation_id,
@@ -342,6 +369,11 @@ export function evidenceView(context: AppContext, id: string) {
  * (image) its filename plus any interpretation, clearly marked as model-derived.
  */
 export function itemExcerpt(context: AppContext, item: EvidenceItemRow, limit: number): string | null {
+  const datasetId =
+    item.locator_json === null ? undefined : (JSON.parse(item.locator_json) as { dataset_id?: string }).dataset_id;
+  if (datasetId !== undefined) {
+    return safeSlice(datasetExcerpt(context, datasetId), 0, limit);
+  }
   if (item.locator_json !== null) {
     const locator = JSON.parse(item.locator_json) as {
       payload_sha256: string;

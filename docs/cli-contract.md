@@ -41,6 +41,7 @@ One grammar serves people and AI hosts. The v0.4 HTTP service will expose the sa
 | Extraction | `extract pending [--limit]` (files waiting for the host), `extract apply --request-file` (host-extracted text with page/sheet locators) |
 | Enrichment | `enrich pending [--limit]`, `enrich prepare <ref>`, `enrich apply --request-file` |
 | Retrieval | `search [terms…] [--project] [--match all\|any] [--limit] [--cursor]` or `--request-file` |
+| Tables | `table query --request-file [--save]` (deterministic calculation over host-extracted tables), `table get <T-id>` |
 | Evidence | `evidence prepare --request-file [--from E-id]`, `evidence get <E-id>` |
 | Artifacts | `artifact create --request-file [--derived-from A-id] [--supersedes]` (`format`: `markdown`, or `html` with a sandboxed page; `--assets embedded|linked` for html), `artifact get\|list\|sources\|open [--no-launch]\|export [--format md\|html\|json] [--output]\|trash --confirm` |
 | Backup | `backup create [--output]`, `backup verify <dir>`, `restore <dir> --data-dir <empty>` |

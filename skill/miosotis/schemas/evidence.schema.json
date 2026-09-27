@@ -134,6 +134,16 @@
         "additionalProperties": false
       }
     },
+    "datasets": {
+      "default": [],
+      "description": "Frozen table-query results (T-…) to cite",
+      "maxItems": 20,
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
     "max_items": {
       "default": 60,
       "type": "integer",

@@ -56,6 +56,7 @@ miosotis enrich pending --json                                 # backlog of unen
 miosotis enrich prepare S-<id> --json                          # bounded text + input digest
 miosotis enrich apply --request-file - --json                  # miosotis.enrichment.v1
 miosotis search 计划 artifact --json                            # candidates, any language
+miosotis table query --request-file - --save --json            # deterministic counts/sums over extracted tables → dataset T-…
 miosotis evidence prepare --request-file - --json              # pin hits/refs/quotes → handles c1…cN
 miosotis artifact create --request-file - --json               # Markdown citing [@cN]
 miosotis artifact create --request-file - --derived-from A-<id> [--supersedes]   # regenerate

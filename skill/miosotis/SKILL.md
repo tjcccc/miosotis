@@ -3,7 +3,7 @@ name: miosotis
 description: Personal knowledge memory backed by the local `miosotis` CLI. Use when the user wants to save or remember a thought, note, or pasted article; find, review, or summarize what they saved; analyze or discuss their past notes and ideas; correct, ignore, or trash a saved note; regenerate or reopen a miosotis report; or when they mention miosotis, S-/A- IDs, or "my notes". Works in any language.
 compatibility: Requires the `miosotis` command (v0.1+) on PATH and a shell tool. Local library only.
 metadata:
-  version: "0.2.0-alpha.2"
+  version: "0.2.0-alpha.3"
 ---
 
 # miosotis
@@ -92,7 +92,16 @@ miosotis bundles no PDF, spreadsheet, or HTML parser. You extract with your own 
    - `segments`: one per PDF page (`{"page": n}`) or spreadsheet sheet (`{"sheet": …, "range": "A1:G551"}`, as TSV rows), so chunks and citations keep their location.
    - `method.tool`: what you used.
    - `coverage.complete: false` with a note if you extracted only part.
+   - **Spreadsheets and CSV: also send `tables`**: `name`, `columns` (the header as written), `rows` (cell values in column order, dates as `YYYY-MM-DD`), `header_row`/`first_row` (physical row numbers), and `notes` (hidden rows, merged headers, formulas whose cached values were missing). Copy the values; never compute them.
 4. Then enrich the file as usual. Identical resubmits are no-ops; a changed extraction supersedes the old one, and artifacts that cited it show a notice.
+
+## Numbers: let miosotis calculate
+
+Never do the arithmetic for a report yourself: no counts, sums, averages, or medians. Ask miosotis:
+1. `miosotis table query --request-file - --json` with `inputs` (file Sources plus table names) and any of `filters`, `dedupe`, `group_by` (with `grain` `day`/`month`/`year` for dates), `aggregates` (`count`, `count_distinct`, `sum`, `min`, `max`, `avg`), `select`, `sort`, `limit`. Add a `note` explaining the grain.
+2. **Check the grain before combining files.** Monthly exports are often cumulative snapshots: if the same records reappear, set `dedupe.by` to the record/event key and group by the event date, never by the file. If you can't tell whether files are deltas or snapshots, ask the user or state the ambiguity. Never guess. Read the result's `warnings`: a missing month is absent, not zero.
+3. When a number goes into a report, re-run it with `"save": true` (or `--save`) to freeze a dataset `T-…`. Pin it with `evidence prepare` (`"datasets": ["T-…"]`) and cite its handle next to the numbers. The artifact then links to the calculation with row-level lineage (`Sheet!row`).
+4. Citations in a Markdown table must sit inside a regular cell (or in the text after the table); a marker in a cell beyond the header's columns is dropped, and `artifact create` warns.
 
 ## Web links
 

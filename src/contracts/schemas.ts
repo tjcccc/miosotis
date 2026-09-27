@@ -5,6 +5,7 @@ import { EnrichmentRequest } from "./enrichment.js";
 import { EvidenceRequest } from "./evidence.js";
 import { ExtractionRequest } from "./extraction.js";
 import { SearchRequest } from "./search.js";
+import { TableQueryRequest } from "./table.js";
 
 /** Request contracts published for AI hosts (generated into skill/miosotis/schemas/). */
 export const PUBLISHED_CONTRACTS = {
@@ -12,6 +13,7 @@ export const PUBLISHED_CONTRACTS = {
   enrichment: EnrichmentRequest,
   extraction: ExtractionRequest,
   search: SearchRequest,
+  "table-query": TableQueryRequest,
   evidence: EvidenceRequest,
   artifact: ArtifactRequest,
   correction: CorrectionRequest,

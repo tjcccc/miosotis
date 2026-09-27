@@ -58,10 +58,62 @@ export const ExtractionRequest = z
       })
       .strict()
       .default({ complete: true }),
+    tables: z
+      .array(
+        z
+          .object({
+            name: z.string().trim().min(1).max(200).describe("Sheet or table name; unique within this file"),
+            locator: TextLocator.optional(),
+            columns: z
+              .array(z.string().max(300))
+              .min(1)
+              .max(300)
+              .describe("Header texts as in the file (or names you gave when there is no header)"),
+            header_row: z.number().int().min(0).default(1).describe("Physical row of the header (0 = no header row)"),
+            first_row: z
+              .number()
+              .int()
+              .min(1)
+              .optional()
+              .describe("Physical row number of rows[0]; defaults to header_row + 1"),
+            rows: z
+              .array(z.array(z.union([z.string().max(10_000), z.number(), z.boolean(), z.null()])).max(300))
+              .max(100_000)
+              .describe("Cell values in column order; dates as ISO strings (YYYY-MM-DD); never computed by you"),
+            notes: z
+              .string()
+              .trim()
+              .min(1)
+              .max(1000)
+              .optional()
+              .describe("Hidden rows/sheets, merged headers, formula caches, etc."),
+          })
+          .strict(),
+      )
+      .max(50)
+      .default([])
+      .describe("Optional structured tables (spreadsheets, CSV) so miosotis can calculate deterministically"),
     warnings: z.array(z.string().trim().min(1).max(300)).max(20).default([]),
   })
   .strict()
   .superRefine((value, context) => {
+    const names = new Set<string>();
+    value.tables.forEach((table, index) => {
+      if (names.has(table.name)) {
+        context.addIssue({ code: "custom", path: ["tables", index, "name"], message: "table names must be unique" });
+      }
+      names.add(table.name);
+      if (table.rows.some((row) => row.length > table.columns.length)) {
+        context.addIssue({
+          code: "custom",
+          path: ["tables", index, "rows"],
+          message: "a row has more cells than there are columns",
+        });
+      }
+    });
+    if (value.tables.reduce((total, table) => total + table.rows.length * table.columns.length, 0) > 2_000_000) {
+      context.addIssue({ code: "custom", path: ["tables"], message: "tables exceed 2,000,000 cells in total" });
+    }
     let previousEnd = 0;
     value.segments.forEach((segment, index) => {
       if (segment.end <= segment.start || segment.end > value.text.length) {
