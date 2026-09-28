@@ -2,6 +2,20 @@
 
 Cross-session development log. Newest first. Keep entries short: what shipped, what was verified, what's open.
 
+## 2026-09-28 — v0.4.1 — User-facing README, ready for npm
+
+- **README rewritten for users**, because it becomes the npm page: what miosotis is, install with `npm install -g miosotis`, example prompts, handy terminal commands, your data, good-to-know limits, and doc links.
+- **Developer material moved to `docs/development.md`:** from source, `pnpm check`, the agent-facing commands, data and configuration, limits, and a release checklist.
+- **Getting started:**
+  - installs from npm, with the tarball as an alternative;
+  - updates with `npm install -g miosotis@latest`;
+  - explains the reply language and timezone in `[user]`, which the schedule depends on.
+- **`package.json`:**
+  - `private` removed, so the package can be published;
+  - `keywords`, `homepage`, `repository`, and `bugs` added (npm resolves the README's relative links through `repository`);
+  - a user-facing `description`.
+- Verified: `pnpm check`; `npm pack --dry-run` lists the README, LICENSE, `dist`, `skill`, the guide, and the example config. Nothing was published.
+
 ## 2026-09-28 — v0.4.0 — Schedule
 
 - **Schedule (owner design):** a stated arrangement ("a meeting next Monday morning in the Tokyo room", in any language) is still saved verbatim as a note. The AI host adds `events` to its enrichment. They are stored in `events` (migration 0010, `V-…` IDs), bound to that enrichment and revision.

@@ -1,8 +1,27 @@
 {
   "name": "miosotis",
-  "version": "0.4.0",
-  "private": true,
-  "description": "Local-first, AI-managed personal knowledge system",
+  "version": "0.4.1",
+  "description": "Local-first memory for your notes, files, links, and plans, managed by your AI agent (Claude Code, Codex)",
+  "keywords": [
+    "knowledge",
+    "notes",
+    "memory",
+    "local-first",
+    "claude-code",
+    "codex",
+    "ai-agent",
+    "skill",
+    "schedule",
+    "cli"
+  ],
+  "homepage": "https://github.com/tjcccc/miosotis#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/tjcccc/miosotis.git"
+  },
+  "bugs": {
+    "url": "https://github.com/tjcccc/miosotis/issues"
+  },
   "license": "GPL-3.0-only",
   "type": "module",
   "bin": {

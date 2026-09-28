@@ -3,7 +3,7 @@ name: miosotis
 description: Personal knowledge memory backed by the local `miosotis` CLI. Use when the user wants to save or remember a thought, note, or pasted article; find, review, or summarize what they saved; note or ask about meetings, appointments, and other plans (schedule); analyze or discuss their past notes and ideas; correct, ignore, remove (trash), restore, or permanently delete a saved note; regenerate or reopen a miosotis report; or when they mention miosotis, S-/A- IDs, or "my notes". Works in any language.
 compatibility: Requires the `miosotis` command (v0.1+) on PATH and a shell tool. Local library only.
 metadata:
-  version: "0.4.0"
+  version: "0.4.1"
 ---
 
 # miosotis

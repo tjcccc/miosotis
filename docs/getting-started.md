@@ -11,19 +11,21 @@ miosotis is a local-first memory for your notes, files, and web links. You talk 
 
 ## Install
 
-You'll get a file like `miosotis-0.4.0.tgz` from whoever shared miosotis with you:
-
 ```bash
-npm install -g ./miosotis-0.4.0.tgz
+npm install -g miosotis
 miosotis init --language en           # or ja, zh-CN, …; creates ~/.miosotis
 miosotis skill install --host claude-code --yes
 miosotis skill install --host codex --yes    # if you use Codex (it also prepares Codex's sandbox)
 miosotis doctor
 ```
 
+If someone gave you a file like `miosotis-0.4.0.tgz` instead, install it with `npm install -g ./miosotis-0.4.0.tgz` and continue with `miosotis init`.
+
 Every `skill install` prints exactly what it changed. For Codex, add `--allow-network` if you want to save web links. That flag lets every sandboxed Codex command use the network, not just miosotis.
 
 Start a **new** Claude Code or Codex session afterwards.
+
+Your reply language and timezone are in `~/.miosotis/config.toml` under `[user]` (`language`, `timezone`); `miosotis prefs` shows them. The schedule uses that timezone. It defaults to your computer's timezone.
 
 ## Use it
 
@@ -57,7 +59,7 @@ Talk normally, in any language. Some examples:
 
 ```bash
 miosotis backup create --output <folder>
-npm install -g ./miosotis-<new>.tgz
+npm install -g miosotis@latest                     # or: npm install -g ./miosotis-<new>.tgz
 miosotis skill install --host claude-code --yes    # refreshes the installed Skill
 miosotis skill install --host codex --yes
 miosotis doctor

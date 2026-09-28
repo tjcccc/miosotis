@@ -1,109 +1,78 @@
 # miosotis
 
-miosotis is a local-first, AI-managed personal knowledge system. You express something; miosotis preserves it faithfully. Later you return with an intention (review, analysis, discussion), and it recovers the relevant evidence and produces durable, traceable artifacts.
+**A local-first memory for your notes, files, links, and plans, managed by the AI agent you already use.**
 
-**Status: `0.4.0`.** The version to share: everyday use through an AI agent (Claude Code or Codex), now with a schedule for meetings and appointments:
-- Save thoughts, files, images, and web links; the agent reads PDFs and spreadsheets with its own tools, and miosotis records what they contain.
-- Ask questions, get reviews and analyses with citations down to the page or cell, and numbers calculated by miosotis itself.
-- Mention a meeting or appointment and it lands on your schedule; `miosotis schedule` lists what's coming instantly.
-- Keep deliverables (decks, PDFs, interactive pages) as artifacts.
-- Correct, undo, remove to the trash and restore, delete permanently (after a plan you confirm), back up, restore, and export everything as plain files.
-- Everything stays on your computer.
+You tell your agent (Claude Code or Codex) what to remember. miosotis keeps it on your own computer, word for word. Later you ask: what did I save, what's on next week, what changed since March. The agent answers from your own material, with citations back to exactly what you saved.
 
-New users: see **[docs/getting-started.md](docs/getting-started.md)**.
+- **Save anything:** thoughts, files, images, and web links. The agent reads PDFs and spreadsheets with its own tools; miosotis keeps the originals and records what was extracted.
+- **Ask and review:** answers, reviews, and analyses cite the exact note, page, or spreadsheet cell. Numbers are calculated by miosotis itself, not guessed by the model.
+- **Schedule:** mention a meeting or appointment, including repeating ones like "every Monday at 9:00", and it lands on your schedule. `miosotis schedule` lists what's coming instantly.
+- **Stay in control:** correct notes (old versions are kept), undo a save, remove to a trash and restore, or delete permanently after reviewing exactly what goes.
+- **Your data, your disk:** everything stays in `~/.miosotis`. Back it up, or export everything as plain files.
+- **Any language.**
 
-## Requirements
+## Install
 
-- Node.js 24 LTS
-- pnpm 12
-
-## Setup
-
-**Sharing with friends:** `npm pack` creates `miosotis-<version>.tgz`, which installs with `npm install -g ./miosotis-<version>.tgz`; see `docs/getting-started.md`. The package is marked `private`, so it can't be published to npm by accident.
-
-**From source (development):**
+You need macOS (Linux should work but is untested), [Node.js 24](https://nodejs.org/), and Claude Code and/or Codex.
 
 ```bash
-pnpm install
-pnpm build
-npm link                                         # global `miosotis` (links dist/; rerun pnpm build after changes)
-miosotis init                                    # creates ~/.miosotis (or $MIOSOTIS_HOME)
-miosotis skill install --host claude-code --yes  # copies the Claude Code version into ~/.claude/skills
-miosotis skill install --host codex --yes        # copies the Codex version into ~/.agents/skills (see docs/skill.md for its sandbox)
-```
-
-Then start a new Claude Code session and talk normally: "Remember this: …", "Review what I saved about the product launch", "That note is wrong, it should say …". See `docs/skill.md`.
-
-- Undo with `miosotis skill uninstall --host claude-code` and `npm unlink -g miosotis`.
-- Without the link, run `node dist/index.js <args>`. Avoid `pnpm miosotis …` for `--json` use: pnpm echoes the script line to stdout.
-
-## Everyday commands
-
-```bash
-miosotis "A thought I want to remember." --project miosotis   # save shortcut
-miosotis save --stdin --project reading < article.txt          # verbatim from stdin
-miosotis source list --project miosotis
-miosotis source get S-<id>                                     # original text, state, dependent artifacts
-miosotis artifact list
-miosotis artifact open A-<id>                                  # refresh status banner, open in browser
-miosotis artifact export A-<id> --format md
-miosotis source correct S-<id> --expected-version 1 --request-file fix.json
-miosotis source ignore S-<id> --reason "wrong dataset"         # or include
-miosotis remove S-<id> --confirm                               # to the trash (restorable)
-miosotis schedule                                              # the next 7 days as a table (--days, --months, --from/--to, --past, --format md)
-miosotis trash list                                            # what's in the trash
-miosotis restore S-<id>                                        # back from the trash
-miosotis trash empty                                           # permanent: shows a plan, then --confirm --plan <id>
-miosotis backup create --output ~/OneDrive/miosotis-backups     # verified snapshot; restore with `miosotis backup restore`
-miosotis export --all --output ~/Desktop                       # the whole library as plain files
-miosotis undo                                                  # take back the last save (trash; restorable)
-miosotis repair                                                # clean up leftovers of interrupted work (lists first)
-miosotis prefs                                                 # reply language / timezone that AI hosts follow
+npm install -g miosotis
+miosotis init --language en                    # your reply language: en, zh-CN, ja, …
+miosotis skill install --host claude-code --yes
+miosotis skill install --host codex --yes      # if you use Codex (also prepares its sandbox)
 miosotis doctor
 ```
 
-## AI-host protocol
+Each `skill install` prints exactly what it changed. Start a **new** Claude Code or Codex session afterwards.
 
-An AI host (the miosotis Skill in Claude Code or Codex) supplies the intelligence and calls these commands with JSON on stdin (`--request-file -`). Full grammar and error codes: `docs/cli-contract.md`.
+## Use it
 
-```bash
-miosotis enrich pending --json                                 # backlog of unenriched Sources
-miosotis enrich prepare S-<id> --json                          # bounded text + input digest
-miosotis enrich apply --request-file - --json                  # miosotis.enrichment.v1
-miosotis search "meeting notes" --json                         # candidates, any language
-miosotis table query --request-file - --save --json            # deterministic counts/sums over extracted tables → dataset T-…
-miosotis evidence prepare --request-file - --json              # pin hits/refs/quotes → handles c1…cN
-miosotis artifact create --request-file - --json               # Markdown citing [@cN]
-miosotis artifact create --request-file - --derived-from A-<id> [--supersedes]   # regenerate
-```
+Just talk to your agent, in any language. In Claude Code, start with `/miosotis`; in Codex, with `$miosotis`:
 
-- Every command accepts `--json` and then prints exactly one `miosotis.result.v1` envelope on stdout.
-- Agent JSON is validated; the core assigns IDs, times, hashes, and citation handles, and rejects citations outside the evidence run.
-- `miosotis review|analysis|discuss` need an AI model. Until v0.5 the AI host does this work; without one, these commands say so instead of pretending.
+- `/miosotis Remember this: today I finished Book A`
+- "Save this PDF to the project marketing: /path/to/report.pdf"
+- "Save this link: https://example.com/article"
+- "I have a meeting about the roadmap next Monday morning in the Tokyo room"
+- "Every Monday at 09:00 I attend the sales meeting"
+- "How many meetings do I have next week?"
+- "Review my notes in the project marketing from this month"
+- "That note is wrong, it should say …"
+- "Remove the note about Book A" (it goes to the trash; you can bring it back)
 
-## Data and configuration
+The agent always asks before removing or deleting anything.
 
-- Home: `~/.miosotis` (override with `MIOSOTIS_HOME`), containing `config.toml`. See `config.example.toml`.
-- Library: `data_dir` (default `~/.miosotis/data`). It is self-contained and can be moved whole, but keep the **live** library on a local disk. Do not put it in a live-synced folder (OneDrive, iCloud, Dropbox); use `[backup].dir` for cloud copies.
+## Handy commands
 
-## Honest limits (0.3)
-
-- The bare CLI has no model: saved text stays `enrichment pending` until an AI host applies enrichment.
-- PDFs, spreadsheets, and web pages are read by the AI host with its own tools; miosotis stores the originals, records what was extracted and how, and calculates numbers itself.
-- Retrieval is keyword-based (any language); paraphrase recall depends on the host's query variants and multilingual enrichment terms.
-- Structural citation checks prove a citation points at pinned evidence, not that the sentence is supported by it.
-- Claude Code and Codex are both live-tested (a note saved in Codex was found from Claude Code). There is no HTTP server or Web UI before v0.5.
-- Tested on macOS; Linux is expected to work; Windows is untested.
-- Permanent deletion (`trash empty`) can't reach backups, exports, or AI host transcripts made earlier.
-
-## Development
+These work directly in your terminal, with no AI involved:
 
 ```bash
-pnpm check     # typecheck → lint → build → test
-pnpm format
+miosotis schedule                     # the next 7 days (--days 14, --months 0, --from 2026-10-01 --to 2026-10-31, --past)
+miosotis trash list                   # what's in the trash
+miosotis restore S-…                  # bring an item back
+miosotis backup create --output ~/OneDrive/miosotis-backups
+miosotis export --all --output ~/Desktop   # everything as plain files
+miosotis prefs                        # your reply language and timezone
+miosotis doctor                       # health check (shows no note content)
 ```
 
-Docs: `docs/architecture.md`, `docs/data-model.md`, `docs/cli-contract.md`, `docs/skill.md`, `docs/backup-and-retention.md`, `docs/security.md`, `docs/roadmap.md`, `docs/dogfood.md`, `docs/decisions/`. Change history: `DEVLOG.md`.
+## Your data
+
+- **Everything lives in `~/.miosotis`** on your computer. miosotis itself never sends anything anywhere; the AI agent you use reads what it works with, under that agent's own terms.
+- **Back up regularly,** and always before updating. A cloud folder is fine for backups, but keep the live `~/.miosotis` on a local disk.
+- **Removing is reversible; emptying the trash is not.** Emptying the trash can't reach backups or copies made earlier.
+
+## Good to know
+
+- miosotis organizes and retrieves; the intelligence comes from your agent. Plain `miosotis "…"` in the terminal saves a note, and your agent can process it later.
+- **No reminders or calendar sync:** it only answers when you ask.
+- **Search is keyword-based,** helped by the multilingual terms the agent adds when saving.
+- A citation shows where a statement came from; it doesn't prove the statement is right.
+
+## Documentation
+
+- [Getting started](docs/getting-started.md): install, examples, updating, troubleshooting, uninstall
+- [Backup, restore, deletion](docs/backup-and-retention.md) · [Security](docs/security.md) · [Roadmap](docs/roadmap.md)
+- For developers: [Development](docs/development.md), [architecture](docs/architecture.md), the [CLI contract](docs/cli-contract.md), and the [Skill](docs/skill.md)
 
 ## License
 
