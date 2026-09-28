@@ -85,7 +85,7 @@ miosotis is a single-user, local tool with no server, no network access, and no 
 | Raw HTML / script injection | `markdown.test.ts`, `rich.test.ts`, `rich-artifact.test.ts`, `security.test.ts` (titles, text, filenames, requests escaped; CSP on every page) |
 | Unsafe URL targets / redirects | Not applicable in the core: miosotis makes no network requests. `security.test.ts` asserts the source has no network code; the Skill bounds what the host may fetch |
 | Unauthorized mutations | `security.test.ts` (every removing or deleting command without confirmation changes nothing); `trash.test.ts` (plan ID re-checked); `skill.test.ts` (consent for installs) |
-| Cross-origin requests | Not applicable until the v0.4 HTTP service (see below) |
+| Cross-origin requests | Not applicable until the v0.5 HTTP service (see below) |
 | Secrets in logs or export bundles | `security.test.ts` (a config canary never appears in backups, bundles, doctor output, or errors) |
 | Arbitrary SQL / shell | `search.test.ts` (FTS and `LIKE` syntax are literal); `db.test.ts` (defensive flag); `security.test.ts` (no shell execution; the only spawned process is the OS file opener with an argument array) |
 | Deleted content left behind | `trash.test.ts` (raw byte scan and FTS segment check after `trash empty`, with negative controls) |
@@ -94,4 +94,4 @@ miosotis is a single-user, local tool with no server, no network access, and no 
 
 - miosotis enforces its own rules. It cannot stop a full-access AI host from reading or changing files by other means. Hosts must reach the library only through the CLI, as the Skill states.
 - Structural citation validation does not prove that a sentence is supported by its source.
-- The v0.4 HTTP service must add authentication, Host/Origin checks, and CSRF protection before any exposure beyond loopback.
+- The v0.5 HTTP service must add authentication, Host/Origin checks, and CSRF protection before any exposure beyond loopback.

@@ -1,6 +1,6 @@
 # Roadmap
 
-Direction agreed with the owner on 2026-09-27. Versions follow SemVer; minor versions are milestones.
+Direction agreed with the owner on 2026-09-27 (schedule inserted as v0.4 on 2026-09-28). Versions follow SemVer; minor versions are milestones.
 
 | Version | Scope | Status |
 |---|---|---|
@@ -17,7 +17,8 @@ Direction agreed with the owner on 2026-09-27. Versions follow SemVer; minor ver
 | 0.3.0-alpha.2 | Restore hardening (staged restore, foreign-key and file-reference checks, "a backup made before a deletion brings it back" warning) and `repair` for leftovers | done |
 | 0.3.0-alpha.3 | Security test set mapped to brief scenario K (`docs/security.md`), 64 MiB request cap | done |
 | 0.3.0 | Shareable release: `export --all`, uninstall and troubleshooting docs, Skill updates, tarball install check | done (owner verified dogfood 11–15 live in Claude Code and Codex) |
-| 0.4.0 | Local HTTP service over the same use cases; BYOK and local providers via `@priest-ai/core`; standalone `miosotis "…"` with AI | planned |
+| 0.4.0 | Schedule: stated arrangements become events next to the note (honest precision, rescheduling and cancellation resolved at read time); repeating plans (every N days/weeks/months); instant, model-free `miosotis schedule` with `--days/--months/--from/--to/--past`. The release shared with friends. | done (owner verified the schedule flows live) |
+| 0.5.0 | Local HTTP service over the same use cases; BYOK and local providers via `@priest-ai/core`; standalone `miosotis "…"` with AI | planned |
 | later | Web UI; subscription-backed runtime adapter; presentation decks; richer interactive templates | ideas |
 
 ## Output formats

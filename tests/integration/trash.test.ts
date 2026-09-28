@@ -100,6 +100,14 @@ function seed() {
     title: `${MARK} meeting`,
     abstract: `About ${MARK}.`,
     terms: [MARK.toLowerCase(), "meeting"],
+    events: [
+      {
+        title: `${MARK} meeting`,
+        start: { date: "2026-10-05", part_of_day: "morning" },
+        location: `${MARK} room`,
+        phrase: MARK,
+      },
+    ],
   });
   changeSourcePolicy(context, ids.comment, "ignore", { reason: `hide ${MARK} for now` });
   changeSourcePolicy(context, ids.comment, "include");

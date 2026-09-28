@@ -22,7 +22,7 @@ export function tokenize(query: string): QueryToken[] {
     if (raw.length === 0) {
       continue;
     }
-    const idMatch = /^([SPAEDOT]-[0-9A-Z]{26})(?:@v\d+)?$/i.exec(raw);
+    const idMatch = /^([SPAEDOTV]-[0-9A-Z]{26})(?:@v\d+)?$/i.exec(raw);
     if (idMatch?.[1] !== undefined && ANY_ID_PATTERN.test(idMatch[1])) {
       const id = idMatch[1].toUpperCase();
       if (!seen.has(`id:${id}`)) {

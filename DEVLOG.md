@@ -2,6 +2,35 @@
 
 Cross-session development log. Newest first. Keep entries short: what shipped, what was verified, what's open.
 
+## 2026-09-28 — v0.4.0 — Schedule
+
+- **Schedule (owner design):** a stated arrangement ("a meeting next Monday morning in the Tokyo room", in any language) is still saved verbatim as a note. The AI host adds `events` to its enrichment. They are stored in `events` (migration 0010, `V-…` IDs), bound to that enrichment and revision.
+  - **Honest precision:** a date, a part of day (`morning`…), or a clock time only when stated. An optional end, an IANA timezone (defaulting to the capture zone), a location, and the exact `phrase`, which is dropped with a warning if it isn't in the note.
+  - **Relative dates** resolve from when the note was said (`received_at`), so backlog enrichment stays right.
+- **`miosotis schedule`** lists events from the database with no model call. A built-in template groups them by day, with dates in the user's language.
+  - Default: the next 7 days including today. Options: `--days N`, `--months N` (0 = the current month), `--from/--to` (inclusive; `--from` alone is open-ended), and `--past`.
+  - `--all` shows cancelled and moved entries; `--json` returns a stable shape for the agent.
+  - The terminal output is an aligned table (Date, Time, What, plus Where, Repeats, and Status when used). It is CJK-aware, since wide characters take two columns, and shows the date once per day. `--format md` gives a Markdown table and `--ids` adds the note and event IDs. The owner found the first layout hard to scan.
+- **Moves and cancellations** are new notes whose events `replace` an earlier event or `cancel` it. They are resolved at read time from the live enrichment of visible Sources, so removing the later note brings the plan back, and a corrected note shows its old entries as `stale` until re-enriched.
+- **Repeating plans** (migration 0011): one event with a `repeat` rule.
+  - Rules: every N days, weeks (on weekdays), or months (a day number, the last day, or the nth/last weekday), ending by `until` or `count`.
+  - Expanded per date at read time at the same local time. An open-ended range expands up to a year. Entries show the rule in words ("every Monday").
+  - Changes are new notes, resolved at read time like other changes. Skip one date: `cancels {event, date}`. Move one date: `replaces` + `occurrence`. Change the series from a date: a replacing repeating event. End it: `cancels {event, from}`.
+  - `event_exceptions` replaces `event_cancellations`, with existing rows migrated. No per-date state is stored.
+- **Out of scope:** no reminders, no calendar sync, no `.ics` (the agent can build one from `schedule --json`), and no exotic recurrence (holidays, workdays).
+- **Permanent deletion** also removes events and their cancellations. The byte-scan proof test now seeds an event, with a negative control. `export --all` includes events.
+- **Roadmap:** the service and BYOK move to v0.5. `CLAUDE.md` and `AGENTS.md` were updated together.
+- Verified:
+  - `pnpm check`;
+  - unit tests for date arithmetic and zone conversion (DST, Tokyo, month clamping);
+  - integration: precision kept, every range option, another zone's time labeled, `--past`, reschedule and cancel with `--all` history, removing the later note, a corrected note stale then re-read, ignore hides, validation (impossible dates, time plus part of day, unknown `replaces`, a phrase not in the note), CLI JSON and text.
+  - recurrence unit tests (weekly and every-N-weeks, daily, monthly by day with months skipped, the last day, the first Monday and last Friday, until and count, descriptions);
+  - integration: a weekly series with one date cancelled, one moved, a series change from November, removing that change, and ending the series; invalid rules and occurrences rejected;
+  - table alignment with CJK titles and the Markdown table;
+  - the built CLI answered `schedule` in about 90 ms on a scratch library;
+  - `miosotis-0.4.0.tgz` installed into an isolated prefix: init, schedule, Skill install, doctor OK.
+  - The owner ran the schedule flows live, including a repeating Chinese-language plan and a one-time meeting, and approved the table layout.
+
 ## 2026-09-28 — v0.3.0 — Shareable release
 
 - **`miosotis export --all --output <dir> [--include-trash]`** writes the library as plain files, built as `.partial` and renamed when complete. No model call. It contains:

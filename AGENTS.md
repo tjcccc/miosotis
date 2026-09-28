@@ -35,4 +35,4 @@ Project instructions for coding agents (Codex and others). `CLAUDE.md` is the pr
 - Every checkpoint adds a `DEVLOG.md` entry: `## YYYY-MM-DD — vX.Y.Z — Title`, newest first, last bullet states what was verified.
 - Update `docs/` and the Skill references when behavior, contracts, or setup change.
 - Workflow: stop at each version/phase checkpoint for owner review. Do not commit or push unless asked (the owner uses `savegame`).
-- Roadmap: v0.1 text-only vertical slice via the Skill (no HTTP server); v0.2 attachments/URL/PDF/CSV/XLSX; v0.3 trash with permanent deletion, and hardening; v0.4+ service with BYOK/subscription auth via `@priest-ai/core`, then Web UI.
+- Roadmap: v0.1 text-only vertical slice via the Skill (no HTTP server); v0.2 attachments/URL/PDF/CSV/XLSX; v0.3 trash with permanent deletion, and hardening; v0.4 schedule (the release shared with friends); v0.5+ service with BYOK/subscription auth via `@priest-ai/core`, then Web UI.

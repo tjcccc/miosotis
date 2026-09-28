@@ -1,9 +1,9 @@
 ---
 name: miosotis
-description: Personal knowledge memory backed by the local `miosotis` CLI. Use when the user wants to save or remember a thought, note, or pasted article; find, review, or summarize what they saved; analyze or discuss their past notes and ideas; correct, ignore, remove (trash), restore, or permanently delete a saved note; regenerate or reopen a miosotis report; or when they mention miosotis, S-/A- IDs, or "my notes". Works in any language.
+description: Personal knowledge memory backed by the local `miosotis` CLI. Use when the user wants to save or remember a thought, note, or pasted article; find, review, or summarize what they saved; note or ask about meetings, appointments, and other plans (schedule); analyze or discuss their past notes and ideas; correct, ignore, remove (trash), restore, or permanently delete a saved note; regenerate or reopen a miosotis report; or when they mention miosotis, S-/A- IDs, or "my notes". Works in any language.
 compatibility: Requires the `miosotis` command (v0.1+) on PATH and a shell tool. Local library only.
 metadata:
-  version: "0.3.0"
+  version: "0.4.0"
 ---
 
 # miosotis
@@ -35,6 +35,9 @@ miosotis keeps the user's material faithfully and lets you (the AI host) organiz
 | The user wants to… | Do |
 |---|---|
 | remember / save / note / keep this | **Save** |
+| states a dated arrangement: a meeting, appointment, trip ("I have a meeting next Monday morning in the Tokyo room", in any language) | **Save** + **Schedule** |
+| asks what's planned ("What's on next week?", "How many meetings do I have next week?") | **Schedule** (list) |
+| moves or cancels a planned item | **Schedule** (change) |
 | see, list, organize, summarize what they saved | **Review** (descriptive) |
 | answer why / compare / assess from their material | **Analysis** (interpretive) |
 | pick up a topic and keep thinking together | **Discuss** |
@@ -61,6 +64,49 @@ miosotis keeps the user's material faithfully and lets you (the AI host) organiz
 - Text and Markdown files are extracted immediately. Other files (PDF, spreadsheets, HTML, Word, …) stay `extraction pending` until you extract them (see **Extract files**). Report the real state.
 - **Images:** `enrich prepare` lists `files[]` with a read-only `path`. Look at the image and add `interpretations` (bound to its `sha256`): a factual `description`, a verbatim `transcription` of legible text, and `observations` marked `clear` or `uncertain`. Never invent numbers you cannot read.
 
+## Schedule
+
+miosotis keeps the user's words as a note and stores the arrangement next to it as an **event**. `miosotis schedule` lists events straight from the database, with no model involved.
+
+**Saving a plan.** Treat a stated arrangement as a clear save signal, even without "remember".
+1. Save the user's words verbatim, like any note.
+2. Right away, `enrich prepare` it, then `enrich apply` with `events` (and the usual title and terms):
+   - Resolve relative dates ("next Monday", "the day after tomorrow") from `received_at` in `timezone` from the prepare output, following the conventions of the user's language. If the date is genuinely ambiguous, ask.
+   - **Keep the stated precision.** Give only a `date`, or add `part_of_day` (`morning`/`afternoon`/`evening`/`night`) when that's all the user said, or `time` when they gave a clock time. Never invent a time.
+   - Set `timezone` only when the user states another zone ("10:00 Tokyo time"). Add `location` when stated.
+   - Copy `phrase`, the words that state the time, exactly from the note. Write the `title` in the user's words and language.
+   - **Repeating plans** ("every Monday at 09:00", "every other Thursday", "the first Monday of each month") get one event with `repeat`. Its `start.date` is the first possible date, normally the note's date. Use:
+     - `{"every": "week", "on": ["monday"]}`
+     - `"interval": 2` for every other week
+     - `{"every": "month", "month_weekday": {"nth": 1, "weekday": "monday"}}`, or `month_day` (`-1` = the last day)
+     - `{"every": "day"}`
+     
+     Add `until` or `count` only when stated. Anything more unusual (for example "every workday except holidays") stays a note without events: say so, and offer specific dates.
+3. Confirm briefly from the receipt's `events`, for example "Saved · Mon Oct 5 · morning · Tokyo room · Meeting about miosotis".
+
+**Asking about plans.** Run `miosotis schedule --json` with the range the question means, computed in the user's timezone (`miosotis prefs --json`):
+- `--days N` for the next N days (default 7, including today)
+- `--from YYYY-MM-DD --to YYYY-MM-DD` for "next week" or specific dates
+- `--months 0` for this month, `--months N` for the next N months
+- `--past --days N` for "when did I last…"
+
+Answer from its `events` only: count them, list date, time or part of day, title, and location. For more than a few entries, show a Markdown table (Date, Time, What, Where, Repeats); `miosotis schedule --format md` prints one you can relay. There's no need for evidence runs. Offer the note (`source_ref`) if they want details.
+
+**Changes.** Find the event first (`miosotis schedule --all --json`, or search). If several could match, ask.
+- **Moved:** save the user's sentence as a new note, and enrich it with the new event plus `"replaces": "V-…"`.
+- **Cancelled:** save the sentence, and enrich it with `"cancels": ["V-…"]`.
+- **For a repeating event, change just the dates the user means:**
+  - **One date skipped:** `"cancels": [{"event": "V-…", "date": "YYYY-MM-DD"}]`
+  - **One date moved:** a one-time event with `"replaces": "V-…", "occurrence": "<that date>"`
+  - **The series changed from a date on** ("from November at 10:00"): a new repeating event starting then, with `"replaces": "V-…"` and no `occurrence`
+  - **The series ended:** `"cancels": [{"event": "V-…", "from": "<first date without it>"}]`
+- Don't correct the original note for a change: both statements stay part of the record. If the user removes the later note, the earlier plan comes back.
+- **Re-enriching** a note that has events: send its `events` again, or they drop out of the schedule.
+
+**Not supported:**
+- **Reminders and calendar sync:** miosotis never notifies anyone. If the user wants a calendar file, you may build one from `schedule --json` yourself.
+- **Unusual repeat patterns** beyond every N days, weeks, or months: keep them as a note, as described above.
+
 ## Enrich
 
 1. `miosotis enrich prepare <ref> --json` returns `text`, `source_ref` (with `input_digest`), `known_projects`, and whether the text is `complete`.
@@ -71,10 +117,11 @@ miosotis keeps the user's material faithfully and lets you (the AI host) organiz
    - `entities`
    - `assertions` with the correct `holder`: a quoted article's claim belongs to `quoted_author`, not the user
    - `project_suggestions`: existing project IDs only, and only when clearly relevant
+   - `events` when the note states a dated arrangement (see Schedule)
    - `coverage`: omit it when `complete` is true. Otherwise copy `provided_chars` → `read_chars` and `total_chars` → `total_chars`. Never count characters yourself.
 3. `miosotis enrich apply --request-file - --json`.
 
-**Backlog:** `miosotis enrich pending --json` lists unenriched items (for example from bare `miosotis "…"` saves). Offer to process them, or process a few when the user asks.
+**Backlog:** `miosotis enrich pending --json` lists unenriched items (for example from bare `miosotis "…"` saves). Offer to process them, or process a few when the user asks. Add `events` for plans you find there too: they are resolved from when the note was saved, not from today.
 
 ## Undo
 

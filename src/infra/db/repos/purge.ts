@@ -1,4 +1,5 @@
 import type { Database } from "../database.js";
+import { deleteEventsOfSource } from "./events.js";
 
 /** Every stored file reference and the item that owns it. Purge erases a file only when no survivor uses it. */
 export interface BlobReference {
@@ -135,6 +136,7 @@ export function deleteDataset(db: Database, datasetId: string): void {
  * derivation rows (kind, method, model), and the offsets of pinned evidence.
  */
 export function purgeSourceRows(db: Database, sourceId: string, at: string, changeSeq: number): void {
+  deleteEventsOfSource(db, sourceId);
   db.run(
     "UPDATE source_versions SET content_text = NULL, content_digest = NULL, provenance_json = NULL, purged_at = ? WHERE source_id = ? AND purged_at IS NULL",
     [at, sourceId],

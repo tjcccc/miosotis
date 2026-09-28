@@ -21,6 +21,33 @@ MIOSOTIS_JSON
 
 Reply (in the user's language): `Saved S-XXXX@v1 · project roadmap. Enrichment complete.`
 
+## Save a plan, then ask about it
+
+User: "I have a meeting about the roadmap next Monday morning in the Tokyo room."
+
+1. `miosotis save` the sentence verbatim, then `miosotis enrich prepare S-XXXX --json`. Say `received_at` is Monday 2026-09-28 and `timezone` is Asia/Shanghai.
+2. `miosotis enrich apply` with a title, terms, and one event: `start {"date": "2026-10-05", "part_of_day": "morning"}`, `location` "Tokyo room", `phrase` "next Monday morning".
+3. Reply: `Saved · Mon Oct 5 · morning · Tokyo room · Meeting about the roadmap`.
+
+Later: "How many meetings do I have next week?"
+
+1. Next week is Monday 2026-10-05 to Sunday 2026-10-11: `miosotis schedule --from 2026-10-05 --to 2026-10-11 --json`.
+2. Count the meeting-like entries, and list each with its day, time or part of day, and place.
+
+Later: "The roadmap meeting moved to Tuesday afternoon."
+
+1. `miosotis schedule --days 14 --json` → the event `V-AAAA`.
+2. Save the sentence, and enrich it with a new event `start {"date": "2026-10-06", "part_of_day": "afternoon"}` plus `"replaces": "V-AAAA"`.
+
+## A weekly meeting
+
+User: "Every Monday at 09:00 I attend the east region sales meeting."
+
+1. Save the sentence verbatim, then enrich it with one event: `start {"date": "<note date>", "time": "09:00"}`, `"repeat": {"every": "week", "on": ["monday"]}`, and `phrase` "Every Monday at 09:00".
+2. Reply: `Saved · every Monday · 09:00 · East region sales meeting`.
+
+Later: "Next Monday's sales meeting is cancelled." Find the date with `miosotis schedule --days 14 --json` (event `V-SALES`, date 2026-10-05), save the sentence, and enrich it with `"cancels": [{"event": "V-SALES", "date": "2026-10-05"}]`.
+
 ## Save a pasted article
 
 Use `"origin": "imported"`, put what is visible into `provenance`, and keep the user's own comment as a **separate** save with `"origin": "user"`. That way the article's claims are never mixed with the user's view.

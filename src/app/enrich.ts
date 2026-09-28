@@ -20,6 +20,7 @@ import { setProcessingState } from "../infra/db/repos/sources.js";
 import { digestOf } from "../infra/digest.js";
 import { readableText, reindex } from "./content.js";
 import { type AppContext, isoNow } from "./context.js";
+import { storeEvents } from "./events.js";
 import { requireSource, requireVersion } from "./sources.js";
 
 /** Maximum text handed to the host for lightweight enrichment. Longer sources get partial coverage. */
@@ -130,6 +131,7 @@ export function prepareEnrichment(context: AppContext, reference: string) {
       "Report coverage honestly when you read only part of the text.",
       "For images: look at the file and add `interpretations` bound to its sha256; transcribe only what is legible and mark uncertain readings.",
       "If extraction_needed is true: read the file with your own tools, submit its text with `miosotis extract apply`, then prepare again.",
+      "If the source states a dated arrangement (meeting, appointment, trip), add `events`: resolve relative dates ('next Monday') from received_at in timezone, keep the stated precision (a date, a part of day, or a clock time), and never invent a time.",
     ],
   };
 }
@@ -140,6 +142,9 @@ export interface EnrichmentReceipt {
   replayed: boolean;
   state: "complete" | "partial";
   inferred_projects: string[];
+  /** Schedule entries stored from this enrichment (`miosotis schedule` lists them). */
+  events: { id: string; title: string; start_date: string; precision: string; repeats: boolean }[];
+  cancelled_events: { event: string; kind: "all" | "date" | "from"; date: string | null }[];
   warnings: string[];
 }
 
@@ -238,6 +243,22 @@ export function applyEnrichment(context: AppContext, input: EnrichmentRequestInp
       payload_sha256: null,
     });
     supersedeDerived(context.db, sourceId, version.version, "enrichment", derivationId);
+    const schedule = storeEvents(
+      context,
+      { events: request.events, cancels: request.cancels },
+      {
+        sourceId,
+        version: version.version,
+        derivationId,
+        timezone: version.timezone,
+        text: [
+          readableText(context, sourceId, version.version).text,
+          ...request.interpretations.map((entry) => entry.transcription ?? ""),
+        ].join("\n"),
+        at,
+      },
+    );
+    warnings.push(...schedule.warnings);
     setProcessingState(context.db, {
       sourceId,
       version: version.version,
@@ -324,6 +345,8 @@ export function applyEnrichment(context: AppContext, input: EnrichmentRequestInp
       replayed: false,
       state: status,
       inferred_projects: inferred,
+      events: schedule.events,
+      cancelled_events: schedule.cancelled,
       warnings,
     };
     insertOperation(context.db, {

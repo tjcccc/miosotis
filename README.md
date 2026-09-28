@@ -2,9 +2,10 @@
 
 miosotis is a local-first, AI-managed personal knowledge system. You express something; miosotis preserves it faithfully. Later you return with an intention (review, analysis, discussion), and it recovers the relevant evidence and produces durable, traceable artifacts.
 
-**Status: `0.3.0`.** The version to share: everyday use through an AI agent (Claude Code or Codex), now with a trash, permanent deletion, export, and hardened recovery:
+**Status: `0.4.0`.** The version to share: everyday use through an AI agent (Claude Code or Codex), now with a schedule for meetings and appointments:
 - Save thoughts, files, images, and web links; the agent reads PDFs and spreadsheets with its own tools, and miosotis records what they contain.
 - Ask questions, get reviews and analyses with citations down to the page or cell, and numbers calculated by miosotis itself.
+- Mention a meeting or appointment and it lands on your schedule; `miosotis schedule` lists what's coming instantly.
 - Keep deliverables (decks, PDFs, interactive pages) as artifacts.
 - Correct, undo, remove to the trash and restore, delete permanently (after a plan you confirm), back up, restore, and export everything as plain files.
 - Everything stays on your computer.
@@ -49,6 +50,7 @@ miosotis artifact export A-<id> --format md
 miosotis source correct S-<id> --expected-version 1 --request-file fix.json
 miosotis source ignore S-<id> --reason "wrong dataset"         # or include
 miosotis remove S-<id> --confirm                               # to the trash (restorable)
+miosotis schedule                                              # the next 7 days as a table (--days, --months, --from/--to, --past, --format md)
 miosotis trash list                                            # what's in the trash
 miosotis restore S-<id>                                        # back from the trash
 miosotis trash empty                                           # permanent: shows a plan, then --confirm --plan <id>
@@ -77,7 +79,7 @@ miosotis artifact create --request-file - --derived-from A-<id> [--supersedes]  
 
 - Every command accepts `--json` and then prints exactly one `miosotis.result.v1` envelope on stdout.
 - Agent JSON is validated; the core assigns IDs, times, hashes, and citation handles, and rejects citations outside the evidence run.
-- `miosotis review|analysis|discuss` need an AI model. Until v0.4 the AI host does this work; without one, these commands say so instead of pretending.
+- `miosotis review|analysis|discuss` need an AI model. Until v0.5 the AI host does this work; without one, these commands say so instead of pretending.
 
 ## Data and configuration
 
@@ -90,7 +92,7 @@ miosotis artifact create --request-file - --derived-from A-<id> [--supersedes]  
 - PDFs, spreadsheets, and web pages are read by the AI host with its own tools; miosotis stores the originals, records what was extracted and how, and calculates numbers itself.
 - Retrieval is keyword-based (any language); paraphrase recall depends on the host's query variants and multilingual enrichment terms.
 - Structural citation checks prove a citation points at pinned evidence, not that the sentence is supported by it.
-- Claude Code and Codex are both live-tested (a note saved in Codex was found from Claude Code). There is no HTTP server or Web UI before v0.4.
+- Claude Code and Codex are both live-tested (a note saved in Codex was found from Claude Code). There is no HTTP server or Web UI before v0.5.
 - Tested on macOS; Linux is expected to work; Windows is untested.
 - Permanent deletion (`trash empty`) can't reach backups, exports, or AI host transcripts made earlier.
 

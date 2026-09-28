@@ -3,6 +3,7 @@ import { join, resolve } from "node:path";
 import { MiosotisError } from "../domain/errors.js";
 import { formatSourceRef } from "../domain/ids.js";
 import { getArtifact } from "../infra/db/repos/artifacts.js";
+import { eventsOfSources } from "../infra/db/repos/events.js";
 import { payloadsFor } from "../infra/db/repos/files.js";
 import { projectsForSources } from "../infra/db/repos/projects.js";
 import { currentEnrichments, getSource, getSourceVersion } from "../infra/db/repos/sources.js";
@@ -75,6 +76,19 @@ export function exportLibrary(context: AppContext, options: { output: string; in
     const artifacts = context.db
       .all<{ id: string }>(`SELECT id FROM artifacts WHERE ${lifecycle} ORDER BY finalized_at, id`)
       .map((row) => exportArtifact(context, partial, row.id));
+    const events = eventsOfSources(context.db, ids).map((event) => ({
+      id: event.id,
+      source_id: event.source_id,
+      title: event.title,
+      date: event.start_date,
+      time: event.start_time,
+      part_of_day: event.part_of_day,
+      end_date: event.end_date,
+      end_time: event.end_time,
+      timezone: event.timezone,
+      location: event.location,
+      repeat: event.repeat_json === null ? null : (JSON.parse(event.repeat_json) as unknown),
+    }));
     const index = {
       schema: EXPORT_SCHEMA,
       created_at: isoNow(context),
@@ -82,6 +96,8 @@ export function exportLibrary(context: AppContext, options: { output: string; in
       includes_trash: options.includeTrash === true,
       sources,
       artifacts,
+      /** Schedule entries the AI read from the Sources (may include cancelled or rescheduled ones). */
+      events,
     };
     writeFileAtomic(join(partial, "index.json"), `${JSON.stringify(index, null, 2)}\n`, 0o600);
     writeFileAtomic(join(partial, "README.md"), readme(index), 0o600);

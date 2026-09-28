@@ -20,7 +20,7 @@ future HTTP service ───────────┤
 - `src/cli` parses arguments, reads files/stdin, and renders results. It holds no product rules.
 - `src/app` owns the use cases (capture, source queries, search, enrichment, evidence, artifacts, governance, backup, skill installation). Each use case validates input with a contract and runs its writes in one `Database.transaction()`.
 - `src/domain/tables.ts` is the pure calculation engine. Numbers in reports come from it, never from a model.
-- `src/domain` and `src/contracts` import no Node APIs and nothing from `infra`, so the rules and contracts stay reusable by the v0.4 service and future clients.
+- `src/domain` and `src/contracts` import no Node APIs and nothing from `infra`, so the rules and contracts stay reusable by the v0.5 service and future clients.
 - `src/infra` implements storage and I/O. `infra` never imports `app` or `cli`. Only `src/infra/db/database.ts` imports `node:sqlite`.
 
 Built-in importers sit behind the small `Importer` interface in `src/infra/importers/registry.ts`, which is the plugin seam. Only the text/Markdown importer ships; everything else is extracted by the AI host and recorded through `extract apply`, keeping miosotis small.
@@ -36,7 +36,7 @@ The core deliberately calls `infra` repositories directly instead of going throu
 
 ## Model ownership
 
-v0.1 has no model runner of its own. The AI host running the Skill (Claude Code, later Codex) supplies all intelligence and submits schema-validated results through the CLI (`host_agent` mode). The core records generator metadata but never invents a model name. The v0.4 service adds its own providers (BYOK/subscription) through `@priest-ai/core`, behind the same use cases.
+v0.1 has no model runner of its own. The AI host running the Skill (Claude Code or Codex) supplies all intelligence and submits schema-validated results through the CLI (`host_agent` mode). The core records generator metadata but never invents a model name. The v0.5 service adds its own providers (BYOK/subscription) through `@priest-ai/core`, behind the same use cases.
 
 ## Search
 
@@ -52,8 +52,8 @@ Search exists for the AI host, not as an end-user feature. It is language-agnost
 | Area | v0.1 | Later |
 |---|---|---|
 | Inputs | text | attachments, URLs, PDF, CSV/XLSX (v0.2) |
-| Interfaces | CLI + Skill | HTTP service (v0.4), Web UI |
-| AI | host agent via Skill | BYOK/subscription providers (v0.4) |
+| Interfaces | CLI + Skill | HTTP service (v0.5), Web UI |
+| AI | host agent via Skill | BYOK/subscription providers (v0.5) |
 | Artifacts | Markdown; sandboxed, self-contained HTML pages | multi-file artifacts, images/PDF/Office, deterministic exports (see `docs/roadmap.md`) |
 | Deletion | ignore; remove to the trash / restore; `trash empty` with a reviewable plan | — |
 | Retrieval | FTS trigram + substring | optional embeddings attached to exact chunks |

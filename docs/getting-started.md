@@ -11,10 +11,10 @@ miosotis is a local-first memory for your notes, files, and web links. You talk 
 
 ## Install
 
-You'll get a file like `miosotis-0.3.0.tgz` from whoever shared miosotis with you:
+You'll get a file like `miosotis-0.4.0.tgz` from whoever shared miosotis with you:
 
 ```bash
-npm install -g ./miosotis-0.3.0.tgz
+npm install -g ./miosotis-0.4.0.tgz
 miosotis init --language en           # or ja, zh-CN, …; creates ~/.miosotis
 miosotis skill install --host claude-code --yes
 miosotis skill install --host codex --yes    # if you use Codex (it also prepares Codex's sandbox)
@@ -32,6 +32,8 @@ Talk normally, in any language. Some examples:
 - `/miosotis Remember this: today I finished Book A` (Claude Code), or `$miosotis …` (Codex)
 - "Save this PDF to the project marketing: /path/to/report.pdf"
 - "Save this link: https://example.com/article" (the agent keeps the page's main text and the original URL)
+- "I have a meeting about the roadmap next Monday morning in the Tokyo room" (saved as a note and put on your schedule)
+- "How many meetings do I have next week?", or just type `miosotis schedule` for the next 7 days
 - "When was the last time I had a meeting?"
 - "Review my notes in the project marketing from this month" (a report with citations; open it with `miosotis artifact open A-…`)
 - "That note is wrong, it should say …" (the old version is kept; reports built on it show a notice)

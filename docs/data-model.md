@@ -54,6 +54,19 @@ The schema lives in `src/infra/db/migrations/`. Schema version is tracked with `
 - `processing_states` tracks each stage separately (`pending`, `complete`, `partial`, `unsupported`, `failed`), never a single `processed` flag.
 - `search_fts` indexes folded text of **current** revisions only: one row per chunk plus one row of enrichment hints. Capture, correction, and enrichment replace a source's rows inside the same transaction. Policy (retention, inclusion, project) is applied at query time through the `visible_sources` view, so ignoring a source takes effect immediately without reindexing.
 
+## Events (migration 0010)
+
+- `events` (`V-…`) are schedule entries the AI host read from a Source, submitted with its enrichment. Each is bound to the enrichment derivation and exact revision.
+- **Stored fields:** title, start date, optional clock time *or* part of day, optional end, IANA timezone, location, and the quoted `phrase`. `precision` is `day`, `part_of_day`, or `exact`.
+- **Ordering:** `start_at` and `until_at` are UTC instants for ordering and range queries. A part of day uses a fixed representative hour for ordering only; it is never displayed as a time.
+- **Moves and cancellations.** A later event may name `replaces` (a reschedule), and `event_cancellations` records cancellations stated by another Source's enrichment. Neither rewrites the earlier row.
+- **Resolved at read time.** Only events from the live enrichment (the active enrichment of the newest enriched revision) of a visible Source count. An event is hidden when a live event replaces it or a live enrichment cancels it. Removing, restoring, ignoring, or correcting a note therefore changes the schedule consistently. A corrected note shows its old events as `stale` until it is re-enriched.
+- **Repeating events (migration 0011).** `repeat_json` holds a normalized rule: every N days, weeks (on weekdays), or months (a day number, or the nth weekday), with an optional `until` or `count`. `start_date` is the first occurrence. Occurrences are computed at read time, each at the same local time in the event's zone.
+  - `replaces_occurrence` replaces one date. A replacement without it replaces the series from its own start date on.
+  - `event_exceptions` (which replaces `event_cancellations`) records `all`, one `date`, or everything `from` a date, stated by a live enrichment.
+  - Per-date states are never stored.
+- **Permanent deletion** removes a Source's events and every exception that involves them.
+
 ## Projects
 
 - `projects` has a stable ID, a unique slug in any script, a name, and an optional user-authored description.

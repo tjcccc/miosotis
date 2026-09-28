@@ -1,6 +1,6 @@
 # CLI contract
 
-One grammar serves people and AI hosts. The v0.4 HTTP service will expose the same use cases.
+One grammar serves people and AI hosts. The v0.5 HTTP service will expose the same use cases.
 
 ## Output
 
@@ -36,6 +36,7 @@ One grammar serves people and AI hosts. The v0.4 HTTP service will expose the sa
 | Capture | `miosotis "text"` (shortcut), `save [text…] [--stdin] [--request-file] [--project] [--origin] [--idempotency-key] [--attach <path>]…` |
 | Sources | `source get <ref> [--range a:b] [--chunk n] [--max-chars n]`, `source list [--project] [--since] [--until] [--limit] [--cursor] [--all]`, `source history <S-id>` |
 | Undo | `undo [--confirm]`: moves the most recent capture group (comment and files) to the trash; reversible with `restore` |
+| Schedule | `schedule [--days N \| --months N \| --from D [--to D]] [--past] [--all] [--format table\|md] [--ids]`: saved arrangements in a date range, with repeating plans expanded per date (default: the next 7 days including today; `--months 0` = the current month; `--to` inclusive); no model call |
 | Trash | `remove <S-id\|A-id…> [--with-artifacts] --confirm`, `trash list`, `restore [<S-id\|A-id…>]` (all with no IDs, after `--confirm`), `trash empty [<ids…>] [--keep-artifacts] [--confirm --plan <id>]`, `trash empty --resume` (see below) |
 | Governance | `source correct <S-id> --expected-version N --request-file`, `source assign <S-id…> --project <slug>`, `source unassign <S-id…> --project <slug>`, `source ignore <S-id> --reason`, `source include`, `source trash --confirm`, `source restore` |
 | Projects | `project list`, `project create <slug> [--name] [--description]` |

@@ -56,6 +56,63 @@ Copy `source_ref` exactly from `enrich prepare`.
   - `stale_version`: the source was corrected. Run `enrich prepare` again.
   - `validation` about the digest: prepare again.
 
+## Events in enrichment (schedule)
+
+Add to `enrich apply` when the note states a dated arrangement:
+
+```json
+{
+  "source_ref": {"id": "S-…", "version": 1, "input_digest": "sha256:…"},
+  "title": "Meeting about the roadmap",
+  "terms": ["meeting", "roadmap"],
+  "events": [
+    {"title": "Meeting about the roadmap", "start": {"date": "2026-10-05", "part_of_day": "morning"},
+     "location": "Tokyo room", "phrase": "next Monday morning"},
+    {"title": "Call with the Tokyo office", "start": {"date": "2026-10-07", "time": "10:00"}, "end": {"time": "11:00"},
+     "timezone": "Asia/Tokyo"}
+  ]
+}
+```
+
+- **`start`:** `date` is required. Add either `time` (`HH:MM`, only when stated) or `part_of_day` (`morning|afternoon|evening|night`), not both.
+- **`end`** (optional): `date` and/or `time`. A multi-day item gives `end.date`.
+- **`timezone`:** defaults to the zone the note was saved in (from `enrich prepare`).
+- **`phrase`** must appear in the note verbatim; otherwise it is dropped with a warning.
+- **`replaces`** (a `V-…` ID) reschedules an earlier event. The top-level `cancels: ["V-…"]` cancels events.
+- `repeat` (optional) makes one event repeat:
+
+  ```json
+  {"title": "East region sales meeting", "start": {"date": "2026-09-28", "time": "09:00"},
+   "repeat": {"every": "week", "on": ["monday"]}, "phrase": "every Monday at 09:00"}
+  ```
+
+  - **`every`** is `day`, `week`, or `month`, and `interval` is N (default 1).
+  - **`on`:** weekdays, for weekly rules.
+  - **`month_day`** (1–31, `-1` = last day) or **`month_weekday`** (`{"nth": 1..5 | -1, "weekday": …}`), for monthly rules.
+  - **`until`** (inclusive) or **`count`**.
+  - `start.date` is the first possible date. The stored start moves to the first real occurrence.
+- **Changing a repeating event:**
+  - `cancels` also takes `{"event": "V-…", "date": "…"}` (one date) or `{"event": "V-…", "from": "…"}` (end the series).
+  - A replacing event with `"occurrence": "<date>"` replaces that one date. Without it, the replacement replaces the series from its own start date on.
+- The receipt lists `events` (`id`, `title`, `start_date`, `precision`) and `cancelled_events`.
+
+## Schedule: `miosotis schedule [--days N | --months N | --from D [--to D]] [--past] [--all] [--format table|md] [--ids] --json`
+
+```json
+{"range": {"from": "2026-09-28", "to": "2026-10-04", "timezone": "Asia/Shanghai", "past": false},
+ "today": "2026-09-28", "total": 1,
+ "events": [{"id": "V-…", "title": "Dentist", "date": "2026-09-28", "time": "18:00", "part_of_day": null,
+   "end_date": null, "end_time": "19:00", "precision": "exact", "timezone": "Asia/Shanghai", "location": null,
+   "status": "scheduled", "moved_to": null, "source_ref": "S-…@v1", "phrase": "today at 18:00", "repeat": null, "stale": false}]}
+```
+
+- **Output without `--json`:** an aligned table for the terminal (wide characters such as CJK take two columns), or `--format md` for a Markdown table. `--ids` adds the note and event IDs.
+- **Default range:** the next 7 days, including today. `--months 0` is the current month. `--to` is inclusive. `--from` alone is open-ended.
+- **`--all`** adds cancelled (`status: "cancelled"`) and rescheduled (`"moved"`, with `moved_to`) entries.
+- **Repeating events** appear once per date in the range, with the same `id` and `repeat` in words (for example `"every Monday"`). Refer to one date as `{"event": id, "date": date}`. An open-ended `--from` range expands repeats for up to a year.
+- **`stale: true`:** the note was corrected and not re-enriched yet.
+- Removed, ignored, or deleted notes contribute nothing.
+
 ## Extraction: `miosotis extract apply --request-file - --json`
 
 For a file Source whose extraction is pending (PDF, spreadsheet, HTML, …). Copy `payload_sha256` from `extract pending` or `source get`.

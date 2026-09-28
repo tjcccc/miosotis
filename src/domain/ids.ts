@@ -10,6 +10,7 @@ export const ID_PREFIX = {
   derivation: "D",
   operation: "O",
   dataset: "T",
+  event: "V",
 } as const;
 
 export type IdKind = keyof typeof ID_PREFIX;
@@ -60,4 +61,4 @@ export function formatSourceRef(id: string, version: number): string {
 }
 
 /** Recognizes any type-prefixed miosotis ID inside free text (used by search). */
-export const ANY_ID_PATTERN = /^[SPAEDOT]-[0-9A-HJKMNP-TV-Z]{26}$/i;
+export const ANY_ID_PATTERN = /^[SPAEDOTV]-[0-9A-HJKMNP-TV-Z]{26}$/i;
