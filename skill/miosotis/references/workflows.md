@@ -4,22 +4,22 @@ These are illustrative; IDs are placeholders. Always use the IDs the CLI returns
 
 ## Save a thought
 
-User: "记一下：artifact 应该冻结，重新生成必须由我决定。项目 miosotis"
+User: "Remember this: reports should stay frozen, and regenerating one is my call. Project roadmap."
 
 ```bash
 miosotis save --request-file - --json <<'MIOSOTIS_JSON'
-{"text": "artifact 应该冻结，重新生成必须由我决定。", "project": "miosotis", "idempotency_key": "save-20260927-k3j9"}
+{"text": "Reports should stay frozen, and regenerating one is my call.", "project": "roadmap", "idempotency_key": "save-20260927-k3j9"}
 MIOSOTIS_JSON
 miosotis enrich prepare S-XXXX@v1 --json
 miosotis enrich apply --request-file - --json <<'MIOSOTIS_JSON'
 {"source_ref": {"id": "S-XXXX", "version": 1, "input_digest": "sha256:…"},
- "title": "Artifact 冻结与显式重新生成", "abstract": "用户认为 artifact 应冻结，重新生成须由用户决定。",
- "language": "zh", "terms": ["artifact", "冻结", "重新生成", "regeneration", "frozen report"],
- "assertions": [{"text": "重新生成必须由用户决定", "holder": "user", "modality": "explicit"}]}
+ "title": "Frozen reports and explicit regeneration", "abstract": "The user wants reports to stay frozen, with regeneration decided by the user.",
+ "language": "en", "terms": ["frozen report", "regeneration", "explicit update"],
+ "assertions": [{"text": "Regeneration is the user's decision", "holder": "user", "modality": "explicit"}]}
 MIOSOTIS_JSON
 ```
 
-Reply: `已保存 S-XXXX@v1 · 项目 miosotis，已完成整理。`
+Reply (in the user's language): `Saved S-XXXX@v1 · project roadmap. Enrichment complete.`
 
 ## Save a pasted article
 
@@ -31,7 +31,7 @@ User: "Show everything I noted about ingestion this month."
 
 1. Scope: the current calendar month in the user's timezone.
 2. Enumerate: `miosotis source list --since 2026-09-01 --until 2026-10-01 --json`, following `next_cursor`.
-3. Search variants: `miosotis search "ingestion" --json`, `miosotis search "capture" --json`, `miosotis search "录入" --json`.
+3. Search variants: `miosotis search "ingestion" --json`, `miosotis search "capture" --json`, plus the same terms in the other languages the user writes in.
 4. Keep the enumerated sources that are relevant; read the unclear ones with `source get`.
 5. Pin: `evidence prepare` with those `source_refs`, plus `quotes` for key sentences.
 6. Write a descriptive review grouped by theme, citing `[@cN]`, and state in `limitations` which items were unenriched or unreadable.

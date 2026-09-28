@@ -2,14 +2,14 @@
 
 miosotis is a local-first, AI-managed personal knowledge system. You express something; miosotis preserves it faithfully. Later you return with an intention (review, analysis, discussion), and it recovers the relevant evidence and produces durable, traceable artifacts.
 
-**Status: `0.2.0`.** The first release meant for everyday use through an AI agent (Claude Code or Codex):
+**Status: `0.2.1`.** The first release meant for everyday use through an AI agent (Claude Code or Codex):
 - Save thoughts, files, images, and web links; the agent reads PDFs and spreadsheets with its own tools, and miosotis records what they contain.
 - Ask questions, get reviews and analyses with citations down to the page or cell, and numbers calculated by miosotis itself.
 - Keep deliverables (decks, PDFs, interactive pages) as artifacts.
 - Correct, undo, back up, and restore.
 - Everything stays on your computer.
 
-New users: see **[docs/getting-started.md](docs/getting-started.md)** (English and 中文).
+New users: see **[docs/getting-started.md](docs/getting-started.md)**.
 
 ## Requirements
 
@@ -31,7 +31,7 @@ miosotis skill install --host claude-code --yes  # copies the Claude Code versio
 miosotis skill install --host codex --yes        # copies the Codex version into ~/.agents/skills (see docs/skill.md for its sandbox)
 ```
 
-Then start a new Claude Code session and talk normally: "记一下…", "Review what I saved about ingestion", "That note is wrong, it should say…". See `docs/skill.md`.
+Then start a new Claude Code session and talk normally: "Remember this: …", "Review what I saved about the product launch", "That note is wrong, it should say …". See `docs/skill.md`.
 
 - Undo with `miosotis skill uninstall --host claude-code` and `npm unlink -g miosotis`.
 - Without the link, run `node dist/index.js <args>`. Avoid `pnpm miosotis …` for `--json` use: pnpm echoes the script line to stdout.
@@ -62,7 +62,7 @@ An AI host (the miosotis Skill in Claude Code, later Codex) supplies the intelli
 miosotis enrich pending --json                                 # backlog of unenriched Sources
 miosotis enrich prepare S-<id> --json                          # bounded text + input digest
 miosotis enrich apply --request-file - --json                  # miosotis.enrichment.v1
-miosotis search 计划 artifact --json                            # candidates, any language
+miosotis search "meeting notes" --json                         # candidates, any language
 miosotis table query --request-file - --save --json            # deterministic counts/sums over extracted tables → dataset T-…
 miosotis evidence prepare --request-file - --json              # pin hits/refs/quotes → handles c1…cN
 miosotis artifact create --request-file - --json               # Markdown citing [@cN]

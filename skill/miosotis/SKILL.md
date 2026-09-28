@@ -3,7 +3,7 @@ name: miosotis
 description: Personal knowledge memory backed by the local `miosotis` CLI. Use when the user wants to save or remember a thought, note, or pasted article; find, review, or summarize what they saved; analyze or discuss their past notes and ideas; correct, ignore, or trash a saved note; regenerate or reopen a miosotis report; or when they mention miosotis, S-/A- IDs, or "my notes". Works in any language.
 compatibility: Requires the `miosotis` command (v0.1+) on PATH and a shell tool. Local library only.
 metadata:
-  version: "0.2.0"
+  version: "0.2.1"
 ---
 
 # miosotis
@@ -39,12 +39,12 @@ miosotis keeps the user's material faithfully and lets you (the AI host) organiz
 | answer why / compare / assess from their material | **Analysis** (interpretive) |
 | pick up a topic and keep thinking together | **Discuss** |
 | fix, ignore, trash, restore a saved note | **Govern** |
-| take back what was just saved ("撤销", "undo", "存错了") | **Undo** |
+| take back what was just saved ("undo that", "I saved that by mistake", in any language) | **Undo** |
 | redo or reopen an earlier report | **Regenerate / Open** |
 
-- **A question is for retrieval, never a note.** Interrogatives (什么时候, 几次, 有没有, what/when/how many, …) or a trailing `？`/`?` mean you search the library and answer from evidence. Save a question only if the user explicitly asks you to ("记下这个问题").
-- **Save only on a clear signal:** "记一下 / 存 / 记录 / remember / note / save", attached files, or plainly declarative content the user wants kept.
-- **Ambiguous? Ask one short question** ("存为笔记，还是查询？") instead of guessing. A wrong save is worse than one extra question.
+- **A question is for retrieval, never a note.** Interrogatives (what, when, how many, whether, … in any language) or a trailing question mark (ASCII or full-width) mean you search the library and answer from evidence. Save a question only if the user explicitly asks you to ("note this question").
+- **Save only on a clear signal:** "remember / note / save / keep this" in any language, attached files, or plainly declarative content the user wants kept.
+- **Ambiguous? Ask one short question** ("Save this as a note, or search for it?") instead of guessing. A wrong save is worse than one extra question.
 
 `review`, `analysis`, and `discuss` are intentions, not CLI commands. You run the workflow below with the lower-level commands. (`miosotis review` etc. intentionally refuse without an AI host.)
 
@@ -78,7 +78,7 @@ miosotis keeps the user's material faithfully and lets you (the AI host) organiz
 
 ## Undo
 
-"Undo / 撤销 / 存错了" right after a save means `miosotis undo --json`. The first call returns `confirmation_required` together with the capture it would take back. Show the user those items, and after they agree run `miosotis undo --confirm --json`. This moves that capture (the comment and its files) to the trash; `miosotis source restore <S-id>` brings it back. Only the latest capture can be undone this way; older items are trashed by ID (see Govern).
+A request to take back what was just saved (in any wording or language) means `miosotis undo --json`. The first call returns `confirmation_required` together with the capture it would take back. Show the user those items, and after they agree run `miosotis undo --confirm --json`. This moves that capture (the comment and its files) to the trash; `miosotis source restore <S-id>` brings it back. Only the latest capture can be undone this way; older items are trashed by ID (see Govern).
 
 ## Extract files
 
@@ -105,7 +105,7 @@ Never do the arithmetic for a report yourself: no counts, sums, averages, or med
 
 ## Web links
 
-When the user saves a link (`记一下 https://…`), keep their words verbatim as the comment and capture the page as a file:
+When the user saves a link ("Save this link: https://…"), keep their words verbatim as the comment and capture the page as a file:
 1. Download the raw HTML yourself. Only fetch URLs the user gave, http(s) only, with no cookies or credentials, and never local or private network addresses. For example:
    `curl -sSL --max-time 30 --max-filesize 20000000 -o page.html -w '%{url_effective}' '<url>'`
 2. Save the comment plus `page.html` as an attachment, with `"provenance": {"supplied_url", "final_url", "fetched_at", "fetch_tool"}` on the attachment.

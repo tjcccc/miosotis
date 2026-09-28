@@ -42,7 +42,7 @@ miosotis skill status                           # copied / outdated / linked / m
 | Host | Status |
 |---|---|
 | Claude Code | Protocol exercised live on 2026-09-27: Claude followed `SKILL.md` against the linked CLI (save ×3 including an imported article, enrichment, review, analysis, correction, regeneration). Automatic Skill discovery in a fresh session still needs the owner's live test. |
-| Codex | Adapted copy at `~/.agents/skills/miosotis`, with the sandbox prepared by `skill install`. Live-verified by the owner on 2026-09-27: `$miosotis 记一下…` saved and enriched a note in Codex, and a Claude Code session then found it and answered with its date and evidence (same library, cross-host). |
+| Codex | Adapted copy at `~/.agents/skills/miosotis`, with the sandbox prepared by `skill install`. Live-verified by the owner on 2026-09-27: a note saved with `$miosotis` was enriched in Codex, and a Claude Code session then found it and answered with its date and evidence (same library, cross-host). |
 
 Automated tests cover the protocol with a deterministic fake agent. They say nothing about the semantic quality of real model output.
 

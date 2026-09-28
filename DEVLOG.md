@@ -2,6 +2,17 @@
 
 Cross-session development log. Newest first. Keep entries short: what shipped, what was verified, what's open.
 
+## 2026-09-28 — v0.2.1 — English-only docs
+
+- Docs, README, and the Skill are English-only for now; Chinese docs will be translated from the English
+  later. Removed the Chinese quick-start section from `docs/getting-started.md`.
+- Replaced personal, specific examples with generic ones ("Today I finished Book A", "When was the last
+  time I had a meeting?", "Save this PDF to the project marketing").
+- The Skill describes intent signals (save, question, undo) as phrases "in any language" rather than a
+  fixed list of trigger words; `miosotis undo` itself is unchanged.
+- Verified: `pnpm check` (26 files, 143 tests); no CJK text left in Markdown/TOML/YAML docs; both Skill
+  copies reinstalled.
+
 ## 2026-09-27 — v0.2.0 — Everyday release
 
 - Add artifact files (migration 0007): `artifact create` accepts host-built outputs (decks, PDFs, images,
@@ -15,7 +26,7 @@ Cross-session development log. Newest first. Keep entries short: what shipped, w
   - `npm pack` produces a self-contained tarball (dist, both host Skills, the Getting Started guide,
     the example config), with a `prepack` build; the package stays `private` so it can't be
     published by accident.
-  - Add `docs/getting-started.md` (English and 中文).
+  - Add `docs/getting-started.md`.
   - `doctor` checks the Node version and the host tools (`curl`, `python3`).
 - Skill: store deliverables with artifacts instead of loose files.
 - Pass `pnpm check`: 143 tests. The tarball installs into an isolated npm prefix with a fresh `HOME`
@@ -112,7 +123,7 @@ Cross-session development log. Newest first. Keep entries short: what shipped, w
   banner listing them; standalone HTML exports carry the same notice.
 - Update the Skill (embedded by default; linked on request or for sharing, with the trade-off
   stated), the contracts reference, and the security, data-model, CLI, and roadmap docs.
-- Pass `pnpm check`: 102 tests. In headless Chrome, the owner's standalone Onimusha journal page
+- Pass `pnpm check`: 102 tests. In headless Chrome, a standalone test page
   (cdnjs three.js r128 plus Google Fonts) was rejected as embedded and rendered fully as linked, while
   `fetch` to an allowed host and images from other hosts stayed blocked.
 

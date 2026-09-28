@@ -34,7 +34,7 @@ Copy `source_ref` exactly from `enrich prepare`.
   "title": "Disagreement with article's claim X",
   "abstract": "The user notes an article claiming X, disagrees, and says the group has not decided.",
   "language": "en",
-  "terms": ["claim X", "disagreement", "group decision", "分歧", "未决定"],
+  "terms": ["claim X", "disagreement", "group decision", "undecided"],
   "entities": [{ "name": "Jane Doe", "type": "person" }],
   "project_suggestions": [],
   "assertions": [
@@ -46,6 +46,7 @@ Copy `source_ref` exactly from `enrich prepare`.
 }
 ```
 
+- `terms`: include translations of key terms into the languages the user searches in.
 - Limits: `title` ≤120 chars, `abstract` ≤600 chars, `terms` ≤24, `entities` ≤24, `assertions` ≤10.
 - Images: add `"interpretations": [{"payload_sha256": "<files[].sha256>", "description": "…", "transcription": "legible text only", "observations": [{"text": "HP about 30%", "legibility": "uncertain"}]}]`. They are stored as model-derived interpretations of those exact bytes; the original image is never altered.
 - `holder` is one of `user`, `quoted_author`, `group`, `unknown`. `modality` is one of `explicit`, `tentative`, `quoted`, `inferred`.
@@ -77,7 +78,7 @@ For a file Source whose extraction is pending (PDF, spreadsheet, HTML, …). Cop
 - `segments` (optional) are ordered, non-overlapping UTF-16 spans of `text`. A locator has any of `page`, `sheet`, `range`, `section`. Chunks never cross a segment, and evidence items report `where` (for example `p. 2`).
 - For spreadsheets, use one segment per sheet, with the rows as TSV and `{"sheet": "Worksheet", "range": "A1:G551"}`, **and** a structured table per sheet:
   ```json
-  "tables": [{"name": "Worksheet", "locator": {"sheet": "Worksheet", "range": "A1:G551"}, "columns": ["Name", "Author", "Year", "Genre"], "header_row": 1, "rows": [["10-Day Green Smoothie Cleanse", "JJ Smith", 2016, "Non Fiction"]], "notes": "no hidden rows"}]
+  "tables": [{"name": "Worksheet", "locator": {"sheet": "Worksheet", "range": "A1:G551"}, "columns": ["Item", "Owner", "Year", "Category"], "header_row": 1, "rows": [["Item A", "Team B", 2026, "Category C"]], "notes": "no hidden rows"}]
   ```
   Cells are strings, numbers, booleans, or null (at most 2,000,000 cells in total). `first_row` defaults to `header_row + 1`.
 - `coverage.complete: false` marks a partial extraction, for example `{"complete": false, "note": "pages 1-20 of 45"}`.
@@ -87,7 +88,7 @@ For a file Source whose extraction is pending (PDF, spreadsheet, HTML, …). Cop
 A web page is saved as an attachment first, with provenance on the attachment:
 
 ```json
-{"text": "关于函数式编程：https://example.com/a",
+{"text": "Interesting article: https://example.com/a",
  "attachments": [{"path": "/tmp/page.html", "provenance": {"supplied_url": "https://example.com/a", "final_url": "https://www.example.com/a/", "fetched_at": "2026-09-27T12:00:00Z", "fetch_tool": "curl 8.7"}}]}
 ```
 
@@ -134,7 +135,7 @@ A web page is saved as an attachment first, with provenance on the attachment:
     "date_to": "2026-09-30",
     "notes": "Month = calendar September in the user's timezone; enumerated with source list."
   },
-  "queries": ["regeneration", "重新生成"],
+  "queries": ["regeneration", "report update"],
   "match": "any",
   "per_query_limit": 10,
   "source_refs": [{ "ref": "S-…" }, { "ref": "S-…@v2", "chunk": 0 }],
@@ -169,9 +170,9 @@ Rich page variant (`"format": "html"`), for example `--derived-from A-REVIEW`:
   "evidence_run_id": "E-…",
   "intent": "review",
   "format": "html",
-  "title": "Playthrough in 3D",
-  "request": "Make a cool 3D demo of my playthrough",
-  "markdown": "Hours per chapter: 3, 5, 2 [@c1]. Chapter 2 needed 12 boss retries [@c1].",
+  "title": "Quarterly results in 3D",
+  "request": "Make an interactive 3D chart of the quarterly results",
+  "markdown": "Units per quarter: 3, 5, 2 [@c1]. Q2 was the highest [@c1].",
   "html": "<!doctype html><html><head><meta charset=\"utf-8\"><style>body{margin:0}</style></head><body><h2 data-cite=\"c1\">Hours by chapter</h2><canvas id=\"c\"></canvas><script>/* draw with Canvas 2D; everything inline */</script></body></html>"
 }
 ```
@@ -197,11 +198,11 @@ Rich page variant (`"format": "html"`), for example `--derived-from A-REVIEW`:
 ## Project membership: `miosotis source assign|unassign <S-id…> --project <slug> --json`
 
 ```bash
-miosotis source assign S-AAAA S-BBBB --project 鬼武者剑之道 --json
+miosotis source assign S-AAAA S-BBBB --project marketing --json
 ```
 
 ```json
-{"project": {"id": "P-…", "slug": "鬼武者剑之道", "name": "鬼武者剑之道", "created": true},
+{"project": {"id": "P-…", "slug": "marketing", "name": "marketing", "created": true},
  "results": [{"source_id": "S-AAAA", "change": "assigned"}, {"source_id": "S-BBBB", "change": "upgraded_from_inferred"}]}
 ```
 

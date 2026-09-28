@@ -49,7 +49,7 @@ One grammar serves people and AI hosts. The v0.4 HTTP service will expose the sa
 
 `source assign` has the same meaning as `save --project`: membership is explicit, and a new slug creates the project. `source unassign` removes membership and records an exclusion so AI suggestions cannot re-add it; the project must already exist. Both take several Sources (all-or-nothing), are idempotent (`already_explicit`, `not_member`), and reject unknown or trashed Sources.
 
-A saved text ending in `?`/`？` still saves (the CLI has no model), but the result carries a warning pointing to `search` and `undo`.
+A saved text ending in a question mark (ASCII or full-width) still saves (the CLI has no model), but the result carries a warning pointing to `search` and `undo`.
 
 A free-text save that is a single word close to a command name (for example `serach`) is rejected as a probable typo. Use `miosotis save <word>` to save it anyway.
 
@@ -61,7 +61,7 @@ miosotis save --request-file - --json <<'J'
 J
 miosotis enrich prepare S-…@v1 --json            # → source_ref.input_digest, text
 miosotis enrich apply --request-file - --json <<'J'
-{"source_ref": {"id": "S-…", "version": 1, "input_digest": "sha256:…"}, "title": "Explicit regeneration", "terms": ["regeneration", "重新生成"]}
+{"source_ref": {"id": "S-…", "version": 1, "input_digest": "sha256:…"}, "title": "Explicit regeneration", "terms": ["regeneration", "report update"]}
 J
 miosotis evidence prepare --request-file - --json <<'J'
 {"request": "How do reports update?", "intent": "review", "project": "miosotis", "queries": ["regeneration"]}
