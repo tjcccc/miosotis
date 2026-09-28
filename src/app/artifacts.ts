@@ -11,7 +11,7 @@ import { type ArtifactRow, getArtifact, getCitations, getLinks, insertArtifact }
 import { recordAudit } from "../infra/db/repos/audit.js";
 import { getDerived } from "../infra/db/repos/derived.js";
 import { getEvidenceItems } from "../infra/db/repos/evidence.js";
-import { insertBlob, payloadsFor } from "../infra/db/repos/files.js";
+import { payloadsFor } from "../infra/db/repos/files.js";
 import { findOperation, insertOperation } from "../infra/db/repos/operations.js";
 import { getSource, getSourceVersion } from "../infra/db/repos/sources.js";
 import { digestOf, sha256Hex } from "../infra/digest.js";
@@ -26,11 +26,12 @@ import {
   statusBanner,
 } from "../infra/render/pages.js";
 import { inspectRichHtml, richContentSecurityPolicy, sandboxedDocument, sandboxFrame } from "../infra/render/rich.js";
+import { registerBlob } from "./blobs.js";
 import { safeFilename } from "./capture.js";
 import { derivationText, describeLocator, spanLocator } from "./content.js";
 import { type AppContext, isoNow } from "./context.js";
 import { itemExcerpt, pinnedInterpretation, requireRun } from "./evidence.js";
-import { datasetInputs, datasetView } from "./tables.js";
+import { datasetExists, datasetInputs, datasetView } from "./tables.js";
 
 const CITED_EXCERPT_LIMIT = 600;
 /** Images up to this size are embedded as data: URIs in source pages. */
@@ -221,7 +222,7 @@ export function createArtifact(context: AppContext, input: ArtifactRequestInput)
       purged_at: null,
     });
     outputs.forEach((file, ordinal) => {
-      insertBlob(context.db, { sha256: file.blob.sha256, size: file.blob.size, mime: file.blob.mime, at });
+      registerBlob(context, file.blob, at);
       context.db.run(
         "INSERT INTO artifact_files (artifact_id, ordinal, blob_sha256, filename, mime, role) VALUES (?, ?, ?, ?, ?, ?)",
         [id, ordinal, file.blob.sha256, file.filename, file.blob.mime, file.role],
@@ -296,6 +297,7 @@ export type FreshnessSignal =
   | { kind: "interpretation_replaced"; source_id: string; derivation_id: string; replaced_by: string }
   | { kind: "dataset_inputs_changed"; dataset_id: string; inputs: string[] }
   | { kind: "source_unavailable"; source_id: string; retention: string; inclusion: string }
+  | { kind: "dataset_purged"; dataset_id: string }
   | { kind: "new_material"; count: number; scope: string }
   | { kind: "superseded"; by: string }
   | { kind: "trashed" };
@@ -379,6 +381,11 @@ export function freshness(context: AppContext, artifact: ArtifactRow): Freshness
     if (datasetId === undefined || replaced.has(datasetId)) {
       continue;
     }
+    if (!datasetExists(context, datasetId)) {
+      replaced.add(datasetId);
+      signals.push({ kind: "dataset_purged", dataset_id: datasetId });
+      continue;
+    }
     const changed = datasetView(context, datasetId).inputs.filter(
       (input) =>
         input.extraction_replaced ||
@@ -428,9 +435,24 @@ export function describeSignal(signal: FreshnessSignal): StatusNotice {
         text: `${signal.source_id} was corrected: this artifact used v${signal.used_version}, the current revision is v${signal.current_version}.`,
       };
     case "source_unavailable":
+      return signal.retention === "purged"
+        ? {
+            level: "warn",
+            text: `${signal.source_id} was permanently deleted. Anything this artifact quotes from it remains until the artifact is deleted too.`,
+          }
+        : signal.retention === "trashed"
+          ? {
+              level: "warn",
+              text: `${signal.source_id} is in the trash (\`miosotis restore ${signal.source_id}\` brings it back).`,
+            }
+          : {
+              level: "warn",
+              text: `${signal.source_id} is now ${signal.retention}/${signal.inclusion} and would not be used again.`,
+            };
+    case "dataset_purged":
       return {
         level: "warn",
-        text: `${signal.source_id} is now ${signal.retention}/${signal.inclusion} and would not be used again.`,
+        text: `Dataset ${signal.dataset_id} was purged with its inputs. Numbers this artifact shows from it remain until the artifact is deleted too.`,
       };
     case "new_material":
       return {
@@ -616,6 +638,21 @@ export function materializeArtifact(context: AppContext, id: string): { path: st
     }
     const version = getSourceVersion(context.db, first.source_id, first.version);
     const source = getSource(context.db, first.source_id);
+    if (version === undefined || version.purged_at !== null) {
+      writeFileAtomic(
+        containedPath(sourcesDir, `${ref}.html`),
+        sourcePage({
+          ref,
+          origin: source?.origin ?? "unknown",
+          receivedAt: version?.received_at ?? "",
+          text: null,
+          spans: [],
+          images: [],
+          backLink: "../index.html",
+        }),
+      );
+      continue;
+    }
     const textCitations = group.filter((citation) => citation.locator_json === null);
     const derivationId = textCitations.find((citation) => citation.derivation_id !== null)?.derivation_id ?? null;
     const derivation = derivationId === null ? undefined : getDerived(context.db, derivationId);
@@ -674,6 +711,21 @@ export function materializeArtifact(context: AppContext, id: string): { path: st
     );
   }
   for (const [datasetId, handles] of datasetPages) {
+    if (!datasetExists(context, datasetId)) {
+      writeFileAtomic(
+        containedPath(sourcesDir, `${datasetId}.html`),
+        sourcePage({
+          ref: datasetId,
+          origin: "dataset",
+          receivedAt: "",
+          text: null,
+          spans: [],
+          images: [],
+          backLink: "../index.html",
+        }),
+      );
+      continue;
+    }
     const view = datasetView(context, datasetId);
     writeFileAtomic(
       containedPath(sourcesDir, `${datasetId}.html`),
@@ -807,6 +859,23 @@ export function trashArtifact(context: AppContext, id: string, options: { confir
     recordAudit(context.db, { at, actor: "user", operation: "artifact.trash", subjectIds: [artifact.id] });
   });
   return { id: artifact.id, lifecycle: "trashed", changed: true, sources_affected: 0 };
+}
+
+/** Takes an artifact back out of the trash. A purged artifact cannot come back. */
+export function restoreArtifact(context: AppContext, id: string) {
+  const artifact = requireArtifact(context, id);
+  if (artifact.lifecycle !== "trashed") {
+    return { id: artifact.id, lifecycle: artifact.lifecycle, changed: false };
+  }
+  const at = isoNow(context);
+  context.db.transaction(() => {
+    context.db.run("UPDATE artifacts SET lifecycle = 'active', lifecycle_changed_at = ? WHERE id = ?", [
+      at,
+      artifact.id,
+    ]);
+    recordAudit(context.db, { at, actor: "user", operation: "artifact.restore", subjectIds: [artifact.id] });
+  });
+  return { id: artifact.id, lifecycle: "active", changed: true };
 }
 
 function datasetOf(locatorJson: string | null): string | undefined {

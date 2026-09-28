@@ -48,6 +48,23 @@ User: "That note should say 'user-initiated', not 'automatic'."
 5. Enrich the new revision.
 6. If they want an updated report: `evidence prepare` again (it now pins v2), then `artifact create --derived-from A-OLD` (add `--supersedes` only if replacing).
 
+## Remove, then delete for good
+
+User: "Remove my note about Book A."
+
+1. Find it (`search`, `source list`); if several match, ask which.
+2. `miosotis remove S-XXXX --json` (preview). Tell the user report A-YYYY cites it and stays with a notice unless they want it removed too.
+3. The user: "Remove the report too." → `miosotis remove S-XXXX --with-artifacts --confirm --json`. Both are in the trash; `miosotis restore S-XXXX` would bring both back.
+
+Later: "Empty the trash."
+
+1. `miosotis trash empty --json` (review). Tell the user:
+   - what will be deleted permanently
+   - that the file saved with the note (`linked_sources_not_included`) stays
+   - that backups made earlier still contain it
+2. After they confirm: `miosotis trash empty --confirm --plan <plan_id> --json`.
+3. Reply with what was deleted. Don't repeat the deleted content in your reply.
+
 ## Follow-up after a report
 
 User: "Why did that change in March?"

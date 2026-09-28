@@ -14,7 +14,7 @@ The schema lives in `src/infra/db/migrations/`. Schema version is tracked with `
 - `sources` holds identity and current policy: `kind`, `origin` (`user`, `imported`, `ai_saved`), `current_version`, `retention` (`retained`, `trashed`, `purged`), `inclusion` (`included`, `ignored`, with a reason), and the change sequence numbers used for freshness.
 - `source_versions` holds immutable content: verbatim `content_text`, `content_digest`, `char_length`, observable `provenance_json` (supplied URL, author, reported publication date with precision), `received_at` (UTC), optional `client_captured_at`, and the IANA `timezone` used to interpret it.
 - `(sources.id, current_version)` references `source_versions` with a deferred foreign key, so a source can never point at a missing or foreign revision. Inserts therefore run inside the transaction helper.
-- A trigger makes `source_versions` append-only. The only permitted update is the purge transition (content and digest set to NULL, `purged_at` set, identity kept). Purge itself ships in v0.3; the schema is ready for it.
+- A trigger makes `source_versions` append-only. The only permitted update is the purge transition (content, digest, and provenance set to NULL, `purged_at` set, identity kept).
 - A correction adds version N+1 with `parent_version = N` and moves `current_version`, guarded by an expected-version check (a stale value is a `conflict`). The new revision starts with enrichment `pending`; older revisions, their enrichment, and artifacts pinned to them are untouched.
 
 ## Capture groups and idempotency
@@ -63,12 +63,44 @@ The schema lives in `src/infra/db/migrations/`. Schema version is tracked with `
 ## Evidence and artifacts
 
 - `evidence_runs` pin a request, its interpretation (timezone, date bounds, query variants), scope, strategy version, and a `watermark_seq` for later freshness checks.
-- `evidence_items` assign core-owned handles (`c1…cN`) to exact `(source, version, start, end)` spans. Excerpts are computed from immutable text rather than copied, so a future purge has nothing extra to chase.
+- `evidence_items` assign core-owned handles (`c1…cN`) to exact `(source, version, start, end)` spans. Excerpts are computed from immutable text rather than copied, so a purge has nothing extra to chase.
 - `artifacts` store frozen Markdown, rendered HTML, and a content hash; a trigger rejects content changes except the purge transition. `artifact_citations` uses composite foreign keys so a citation can only reference a handle from the artifact's own evidence run. `artifact_links` records `derived_from`/`supersedes` lineage.
 - `artifacts.format` (migration 0003) is `markdown` or `html`. An `html` artifact stores the host-authored page verbatim in `payload_html`. `content_markdown` still holds its required, citable summary, and `rendered_html` the frozen summary body. The freeze trigger covers `format` and `payload_html`, and the content hash includes the page. Citations are the union of `[@cN]` in the summary and `data-cite` handles in the page.
 - `artifacts.assets` (migration 0004) is `embedded` (default) or `linked`. For linked pages, `linked_hosts_json` freezes the hosts validated at creation, and the viewer's policy allows only those. Both columns are covered by the freeze trigger.
 - An evidence run is immutable. `evidence prepare --from E-…` creates a new run that carries earlier items with their handles.
 - Artifact publication (artifact row, citations, lineage links, idempotency receipt) is one transaction. The static folder `artifacts/<A-id>/` (`index.html` plus `sources/<S-id>@vN.html`) is a rebuildable view: it wraps the stored body with a status banner computed at open time.
+
+## Trash and permanent deletion (migrations 0008, 0009)
+
+- **Removal groups (0009).** `remove` stamps everything it moves to the trash with one removal ID (`sources.removed_with`, `artifacts.removed_with`), so restoring a Source also restores the artifacts removed with it. The stamp is cleared on restore.
+- **Purge.** `trash empty` *purges* trashed items: `retention`/`lifecycle` becomes `purged`. It removes content and keeps only non-content tombstones, so references can still say what happened.
+
+**Sources.** Every revision is purged. Removed:
+- file references (`version_payloads`) and chunks
+- search rows and processing states
+- project membership and exclusions
+- the ignore reason
+
+Kept:
+- the source row, now `retention = purged`
+- revision numbers, sizes, and times
+- derivation rows (kind, method, model), with their content, blob, and digest cleared and `derived_chunks` deleted
+- links between a comment and its files (IDs only)
+
+**Other places.**
+
+| Where | What happens |
+|---|---|
+| Pinned file evidence | The locator, which names the file, becomes `{"purged":true}`. Migration 0008 allows only this change, and only once the revision is purged. Offsets stay. |
+| Datasets calculated from a purged source | Deleted. Citations keep the `T-…` ID, and viewers show it as purged. |
+| Operation receipts | Filenames, hashes, and titles are replaced by IDs. `request_digest` becomes `purged`, so replaying the idempotency key is a `conflict` that recreates nothing. |
+| Audit events | Details (reasons, changes) are cleared. The events stay. |
+| Purged artifacts | Use the existing purge transition. Their `artifact_files` are deleted. |
+| Evidence runs | A run that pinned a purged source or dataset, or belongs to a purged artifact, has its request, interpretation (queries), and coverage cleared (`evidence_runs.purged_at`), unless a kept artifact still uses it. |
+
+**Files.** A stored file is erased only when nothing that survives references it. That includes payloads, extractions, table blobs, datasets, and artifact files; identical bytes are stored once. Erasures are written to `pending_erasures` inside the purge transaction and carried out after commit. Storing the same bytes again cancels a pending erasure. `doctor` fails while erasures are pending; `trash empty --resume` finishes them.
+
+**Physical cleanup.** The purge connection uses `secure_delete`, and the FTS index has `secure-delete` enabled, with an `optimize` after the purge. Afterwards the database is vacuumed and its log truncated.
 
 ## Source policy
 

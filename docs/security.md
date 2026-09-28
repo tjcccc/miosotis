@@ -1,4 +1,4 @@
-# Security notes (v0.1)
+# Security notes
 
 miosotis is a single-user, local tool with no server, no network access, and no telemetry. Its security job is to keep untrusted content inert and every mutation deliberate.
 
@@ -58,9 +58,18 @@ miosotis is a single-user, local tool with no server, no network access, and no 
 - IDs used in file names are validated ULIDs. Writes are atomic (temp file, fsync, rename), with private file modes.
 - Backups exclude `config.toml` and any credentials. Restore never writes over a non-empty folder or the live library.
 
+## Permanent deletion
+
+- Only trashed items can be deleted. `trash empty` shows a reviewable plan first and applies it only with `--confirm --plan <id>`, re-checked inside the transaction.
+- Citing artifacts outside the selection need an explicit decision (remove them too, or `--keep-artifacts`).
+- After a deletion, a raw scan of the library files (database, log, stored files, rendered folders) finds no trace of the content, and the search index holds none of its terms. An integration test enforces this, covering:
+  - text, filenames, extraction locators, tables, datasets, and interpretations
+  - enrichment, reasons, evidence requests, and artifacts
+- Limits: backups, exports, host transcripts, and disk-level remnants (SSD blocks, snapshots) are outside miosotis's reach; the plan says so.
+
 ## Deliberate mutations
 
-- `source trash` and `artifact trash` require `--confirm`, and fail with `confirmation_required` instead of prompting.
+- `remove`, `source trash`, `artifact trash`, `undo`, restoring everything, and `trash empty` require `--confirm`, and fail with `confirmation_required` instead of prompting.
 - `skill install` requires `--yes` and never replaces a foreign entry.
 - Corrections require the expected version, so stale edits are conflicts.
 - Nothing runs in the background, and nothing sends email, publishes, or schedules.

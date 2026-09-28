@@ -11,12 +11,13 @@ import { isImage } from "../infra/blobs/mime.js";
 import { recordAudit } from "../infra/db/repos/audit.js";
 import { nextChangeSeq } from "../infra/db/repos/counters.js";
 import { activeDerived, insertDerivedRecord, supersedeDerived } from "../infra/db/repos/derived.js";
-import { derivedChunks, insertBlob, insertDerivedChunk, payloadsFor } from "../infra/db/repos/files.js";
+import { derivedChunks, insertDerivedChunk, payloadsFor } from "../infra/db/repos/files.js";
 import { getSource, setProcessingState } from "../infra/db/repos/sources.js";
 import { digestOf } from "../infra/digest.js";
 import type { TextLocator } from "../infra/importers/registry.js";
 import { findImporter } from "../infra/importers/registry.js";
 import { chunkText } from "../infra/search/chunker.js";
+import { registerBlob } from "./blobs.js";
 import { reindex } from "./content.js";
 import { type AppContext, isoNow } from "./context.js";
 import { requireSource } from "./sources.js";
@@ -90,7 +91,7 @@ export function runExtraction(context: AppContext, sourceId: string): string {
   const stored = context.blobs.putBytes(Buffer.from(imported.text, "utf8"), "extracted.txt");
   context.db.transaction(() => {
     const derivationId = newId("derivation", context.now().getTime());
-    insertBlob(context.db, { sha256: stored.sha256, size: stored.size, mime: "text/plain", at });
+    registerBlob(context, { ...stored, mime: "text/plain" }, at);
     insertDerivedRecord(context.db, {
       id: derivationId,
       source_id: sourceId,
@@ -201,7 +202,7 @@ export function applyHostExtraction(context: AppContext, input: ExtractionReques
     }
     const at = isoNow(context);
     const stored = context.blobs.putBytes(Buffer.from(request.text, "utf8"), "extracted.txt");
-    insertBlob(context.db, { sha256: stored.sha256, size: stored.size, mime: "text/plain", at });
+    registerBlob(context, { ...stored, mime: "text/plain" }, at);
     const tables = request.tables.map((table) => ({
       ...table,
       first_row: table.first_row ?? table.header_row + 1,
@@ -209,7 +210,7 @@ export function applyHostExtraction(context: AppContext, input: ExtractionReques
     let tablesBlob: string | null = null;
     if (tables.length > 0) {
       const tableBytes = context.blobs.putBytes(Buffer.from(JSON.stringify({ tables }), "utf8"), "tables.json");
-      insertBlob(context.db, { sha256: tableBytes.sha256, size: tableBytes.size, mime: "application/json", at });
+      registerBlob(context, { ...tableBytes, mime: "application/json" }, at);
       tablesBlob = tableBytes.sha256;
     }
     const derivationId = newId("derivation", context.now().getTime());

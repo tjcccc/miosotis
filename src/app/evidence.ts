@@ -64,6 +64,9 @@ function payloadItems(
   }));
 }
 
+/** What a pinned file's locator becomes once its revision is purged. */
+export const PURGED_LOCATOR = '{"purged":true}';
+
 /** The interpretation an image item was pinned with (null when none existed at pin time). */
 export function pinnedInterpretation(
   context: AppContext,
@@ -372,7 +375,11 @@ export function itemExcerpt(context: AppContext, item: EvidenceItemRow, limit: n
   const datasetId =
     item.locator_json === null ? undefined : (JSON.parse(item.locator_json) as { dataset_id?: string }).dataset_id;
   if (datasetId !== undefined) {
-    return safeSlice(datasetExcerpt(context, datasetId), 0, limit);
+    const excerpt = datasetExcerpt(context, datasetId);
+    return excerpt === null ? null : safeSlice(excerpt, 0, limit);
+  }
+  if (item.locator_json === PURGED_LOCATOR) {
+    return null;
   }
   if (item.locator_json !== null) {
     const locator = JSON.parse(item.locator_json) as {

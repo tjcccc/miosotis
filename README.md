@@ -2,11 +2,11 @@
 
 miosotis is a local-first, AI-managed personal knowledge system. You express something; miosotis preserves it faithfully. Later you return with an intention (review, analysis, discussion), and it recovers the relevant evidence and produces durable, traceable artifacts.
 
-**Status: `0.2.1`.** The first release meant for everyday use through an AI agent (Claude Code or Codex):
+**Status: `0.3.0-alpha.1`** (0.3 adds permanent deletion and hardening to the 0.2 everyday release). Use it through an AI agent (Claude Code or Codex):
 - Save thoughts, files, images, and web links; the agent reads PDFs and spreadsheets with its own tools, and miosotis records what they contain.
 - Ask questions, get reviews and analyses with citations down to the page or cell, and numbers calculated by miosotis itself.
 - Keep deliverables (decks, PDFs, interactive pages) as artifacts.
-- Correct, undo, back up, and restore.
+- Correct, undo, permanently delete (after a plan you confirm), back up, and restore.
 - Everything stays on your computer.
 
 New users: see **[docs/getting-started.md](docs/getting-started.md)**.
@@ -48,7 +48,7 @@ miosotis artifact open A-<id>                                  # refresh status 
 miosotis artifact export A-<id> --format md
 miosotis source correct S-<id> --expected-version 1 --request-file fix.json
 miosotis source ignore S-<id> --reason "wrong dataset"         # or include / trash --confirm / restore
-miosotis backup create --output ~/OneDrive/miosotis-backups     # verified snapshot; restore with `miosotis restore`
+miosotis backup create --output ~/OneDrive/miosotis-backups     # verified snapshot; restore with `miosotis backup restore`
 miosotis undo                                                  # take back the last save (trash; restorable)
 miosotis prefs                                                 # reply language / timezone that AI hosts follow
 miosotis doctor
@@ -85,7 +85,7 @@ miosotis artifact create --request-file - --derived-from A-<id> [--supersedes]  
 - Retrieval is keyword-based (any language); paraphrase recall depends on the host's query variants and multilingual enrichment terms.
 - Structural citation checks prove a citation points at pinned evidence, not that the sentence is supported by it.
 - Claude Code and Codex are both live-tested (a note saved in Codex was found from Claude Code). There is no HTTP server or Web UI before v0.4.
-- Ignore and trash are reversible. Permanent purge is v0.3.
+- `miosotis remove` moves items to the trash; `miosotis restore` brings them back. `miosotis trash empty` deletes permanently, after showing a plan you confirm.
 
 ## Development
 

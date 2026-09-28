@@ -14,6 +14,7 @@ import { collect, registerSave, type SaveOptions, saveAction } from "./commands/
 import { registerSearch } from "./commands/search.js";
 import { registerSource } from "./commands/source.js";
 import { registerTable } from "./commands/table.js";
+import { registerTrash } from "./commands/trash.js";
 import { emitError, type OutputStreams, processStreams } from "./output/result.js";
 import { type CliRuntime, runCommand } from "./runtime.js";
 
@@ -42,6 +43,7 @@ export function buildProgram(runtime: CliRuntime): Command {
   registerArtifact(program, runtime);
   registerBackup(program, runtime);
   registerUndo(program, runtime);
+  registerTrash(program, runtime);
   registerPrefs(program, runtime);
   registerSkill(program, runtime);
   registerIntents(program, runtime);

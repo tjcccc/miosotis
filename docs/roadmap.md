@@ -13,7 +13,10 @@ Direction agreed with the owner on 2026-09-27. Versions follow SemVer; minor ver
 | 0.2.0-alpha.3 | Deterministic table operations over host-submitted tables (`table query`, frozen datasets `T-…`, row lineage, ambiguity warnings), monthly-snapshot semantics | done |
 | 0.2.0 | Multi-file artifacts (host-built decks, PDFs, images) with output safety checks and bundle export; shareable release (npm-pack tarball with both host Skills, Getting Started guide, doctor checks for Node and host tools) | done |
 | 0.2.x | Deterministic exports of stored content: Markdown → PDF (headless print) and DOCX; tables → CSV/XLSX | planned |
-| 0.3.0 | Purge with a reviewable cleanup plan, restore hardening, full security test set, Codex Skill verification | planned |
+| 0.3.0-alpha.1 | Trash workflow: `remove` (optionally with citing artifacts), `trash list`, `restore`, and `trash empty` as the only permanent deletion (reviewable plan, plan ID re-checked on confirm, explicit decision for citing artifacts); tombstones; erasure proven by a raw-byte scan; durable pending erasures; `backup restore` | done |
+| 0.3.0-alpha.2 | Restore hardening (staged restore, reference checks, "a backup made before a deletion brings it back" warning) and safe repair of leftovers | planned |
+| 0.3.0-alpha.3 | Security test set mapped to brief scenario K | planned |
+| 0.3.0 | Skill and docs, live Claude Code and Codex verification, release | planned |
 | 0.4.0 | Local HTTP service over the same use cases; BYOK and local providers via `@priest-ai/core`; standalone `miosotis "…"` with AI | planned |
 | later | Web UI; subscription-backed runtime adapter; presentation decks; richer interactive templates | ideas |
 

@@ -33,7 +33,7 @@ miosotis skill status                           # copied / outdated / linked / m
 
 - **Save:** stores the intended text verbatim, then enriches it immediately (title, abstract, multilingual terms, attributed assertions).
 - **Review / analysis / discuss:** multilingual query variants and deterministic enumeration for coverage, then exact evidence pins, then a cited Markdown artifact stored as static HTML.
-- **Govern:** resolves the exact source, corrects it with an expected-version check, and asks before trash.
+- **Govern:** resolves the exact source, corrects it with an expected-version check, and asks before trash. Removing moves items to the trash (restorable). Emptying the trash shows the deletion plan, including any reports that cite the source, and confirms with the plan ID only after the user agrees.
 - **Regenerate:** new evidence, then a new artifact with `--derived-from` lineage.
 - **Rich pages:** self-contained interactive HTML (Canvas, SVG, or an embedded library) built from stored evidence, with a cited Markdown summary, opened in a sandbox.
 

@@ -9,6 +9,7 @@ import {
   listArtifacts,
   materializeArtifact,
   openInBrowser,
+  restoreArtifact,
   trashArtifact,
 } from "../../app/artifacts.js";
 import type { ArtifactRequestInput } from "../../contracts/artifact.js";
@@ -181,6 +182,21 @@ export function registerArtifact(program: Command, runtime: CliRuntime): void {
         return {
           data: result,
           human: result.changed ? `Trashed ${result.id}` : `${result.id} is already ${result.lifecycle}`,
+        };
+      });
+    });
+
+  artifact
+    .command("restore")
+    .description("Take an artifact back out of the trash")
+    .argument("<A-id>")
+    .option("--json", "print a JSON result envelope")
+    .action(async (id: string, options: JsonOption) => {
+      await runCommand(runtime, options.json, () => {
+        const result = inLibrary(runtime, (context) => restoreArtifact(context, id));
+        return {
+          data: result,
+          human: result.changed ? `Restored ${result.id}` : `${result.id} is ${result.lifecycle}; nothing to restore`,
         };
       });
     });

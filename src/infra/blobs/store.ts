@@ -151,6 +151,11 @@ export class BlobStore {
     return statSync(this.path(sha256)).size;
   }
 
+  /** Deletes a stored file (purge only; callers first make sure nothing references it). */
+  remove(sha256: string): void {
+    rmSync(this.path(sha256), { force: true });
+  }
+
   private stagingFile(): string {
     ensureDir(this.staging);
     return join(this.staging, `blob-${process.pid}-${Date.now()}-${Math.random().toString(36).slice(2)}`);

@@ -5,7 +5,7 @@ import { assertId, formatSourceRef, newId, parseSourceRef } from "../domain/ids.
 import { type Cell, type InputTable, type QueryResult, runQuery, TableQueryError } from "../domain/tables.js";
 import { recordAudit } from "../infra/db/repos/audit.js";
 import { activeDerived, getDerived } from "../infra/db/repos/derived.js";
-import { insertBlob } from "../infra/db/repos/files.js";
+import { registerBlob } from "./blobs.js";
 import { type AppContext, isoNow } from "./context.js";
 import { requireSource, requireVersion } from "./sources.js";
 
@@ -114,7 +114,7 @@ export function queryTables(context: AppContext, input: TableQueryRequestInput) 
   const id = newId("dataset", context.now().getTime());
   const stored = context.blobs.putBytes(Buffer.from(JSON.stringify(result), "utf8"), "dataset.json");
   context.db.transaction(() => {
-    insertBlob(context.db, { sha256: stored.sha256, size: stored.size, mime: "application/json", at });
+    registerBlob(context, { ...stored, mime: "application/json" }, at);
     context.db.run(
       "INSERT INTO datasets (id, spec_json, result_blob, row_count, warnings_json, created_at) VALUES (?, ?, ?, ?, ?, ?)",
       [id, JSON.stringify(spec), stored.sha256, result.rows.length, JSON.stringify(result.warnings), at],
@@ -142,6 +142,11 @@ export interface DatasetRow {
   row_count: number;
   warnings_json: string;
   created_at: string;
+}
+
+/** False once a purge removed the dataset (its ID can still appear in pinned evidence). */
+export function datasetExists(context: AppContext, id: string): boolean {
+  return context.db.get("SELECT 1 AS present FROM datasets WHERE id = ?", [assertId("dataset", id)]) !== undefined;
 }
 
 export function requireDataset(context: AppContext, id: string): DatasetRow {
@@ -187,7 +192,10 @@ export function datasetView(context: AppContext, id: string) {
 }
 
 /** Plain-text rendering of a dataset's first rows, for excerpts and citations. */
-export function datasetExcerpt(context: AppContext, id: string, maxRows = 12): string {
+export function datasetExcerpt(context: AppContext, id: string, maxRows = 12): string | null {
+  if (!datasetExists(context, id)) {
+    return null;
+  }
   const view = datasetView(context, id);
   const lines = [
     view.columns.join(" | "),

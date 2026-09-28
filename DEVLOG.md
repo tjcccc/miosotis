@@ -2,6 +2,50 @@
 
 Cross-session development log. Newest first. Keep entries short: what shipped, what was verified, what's open.
 
+## 2026-09-28 — v0.3.0-alpha.1 — Trash and permanent deletion
+
+- **Trash workflow** (owner design): nothing is deleted permanently unless it went through the trash.
+  - `miosotis remove <S-id|A-id…>` previews the move, including the artifacts that cite the Sources, then `--confirm` moves the items to the trash. The citing artifacts stay with an "in the trash" notice unless `--with-artifacts` moves them too.
+  - `miosotis trash list` shows the trash.
+  - `miosotis restore [ids…]` brings items back: all of them with no IDs, after `--confirm`. Restoring a Source also restores the artifacts removed with it (removal groups, migration 0009).
+  - `miosotis trash empty [ids…]` is the only permanent deletion.
+    - The first call returns a reviewable plan and changes nothing: items, datasets, citing artifacts, linked items not included, files to erase and shared files kept, and the effects in plain words.
+    - `--confirm --plan <id>` applies exactly that plan, re-checked inside the transaction.
+    - Citing artifacts outside the selection need a decision: remove and include them, or `--keep-artifacts`.
+- **`miosotis restore <dir>` moved to `miosotis backup restore`.** A folder path passed to `restore` points there.
+- **Migration 0008:**
+  - FTS5 `secure-delete`.
+  - Narrow purge transitions for evidence runs (request cleared) and pinned file locators (the filename cleared).
+  - A durable `pending_erasures` list, so an interrupted deletion is finished (`trash empty --resume`; `doctor` fails until then) instead of leaving deleted bytes behind as "orphans".
+- **What deletion removes:**
+  - text, provenance, payload references, chunks, derived content and chunks, search rows, and processing states
+  - project membership and exclusions, and reasons
+  - receipts: filenames, hashes, and titles; request digests become `purged`, so a replayed key conflicts
+  - audit details
+  - datasets built from the source
+  - evidence runs that pinned it (request, queries, coverage), unless a kept artifact uses them
+  - rendered artifact folders
+  - files that no survivor references (bytes shared with a surviving item stay)
+  
+  Then the database is vacuumed (`secure_delete` on) and the WAL truncated. Tombstones keep IDs, dates, sizes, and revision numbers.
+- **Kept artifacts** still open with no model call. They show "permanently deleted", and their source pages show nothing. Storing the same bytes again cancels a pending erasure. A capture whose file a concurrent deletion just erased fails as retriable `busy` rather than committing a dangling row.
+- **Docs:** CLI contract, backup-and-retention (trash, emptying, and that restoring an older backup brings deleted content back), data model, security, getting started, the Skill (Govern: remove, trash, empty), and the contracts and workflows references.
+- **Verified:**
+  - `pnpm check`.
+  - The trash tests seed one marker into every place content lands (text, filenames, extraction locators, table columns and cells, a dataset filter, enrichment, an interpretation, ignore and correction reasons, evidence requests with and without an artifact, the artifact title, body, limitations, and file). After `trash empty`:
+    - a raw byte scan of every file under the data folder finds no trace;
+    - no trigram is left in `fts5vocab` or in the raw FTS segments, including for a library whose earlier edits predate FTS `secure-delete`.
+  - Negative controls:
+    - the byte scan fails with both `VACUUM` and `secure_delete` disabled;
+    - the segment check fails without the FTS `optimize`.
+  - Also covered:
+    - remove with and without citing artifacts, and restoring the group;
+    - restore all only after confirmation;
+    - kept artifacts after their image and dataset are deleted: `open`, `evidence get`, `sources`, `get`, `list`, and bundle export;
+    - deleting an undone capture;
+    - a shared file survives, and a stale plan conflicts;
+    - `doctor`, backup and restore, and the CLI flow `remove` → `trash list` → `trash empty` → confirm.
+
 ## 2026-09-28 — v0.2.1 — English-only docs
 
 - Docs, README, and the Skill are English-only for now; Chinese docs will be translated from the English

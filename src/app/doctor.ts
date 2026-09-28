@@ -142,6 +142,17 @@ export function runDoctor(options: { env?: NodeJS.ProcessEnv; version: string })
         detail: unindexed === 0 ? "every source is indexed" : `${unindexed} sources missing from the search index`,
       });
     }
+    if (db.get<{ n: number }>("SELECT count(*) AS n FROM sqlite_master WHERE name = 'pending_erasures'")?.n === 1) {
+      const pending = db.get<{ n: number }>("SELECT count(*) AS n FROM pending_erasures")?.n ?? 0;
+      checks.push({
+        name: "purge",
+        status: pending === 0 ? "ok" : "fail",
+        detail:
+          pending === 0
+            ? "no unfinished purge"
+            : `${pending} file(s) from an interrupted purge are not erased yet; run \`miosotis trash empty --resume\``,
+      });
+    }
   } finally {
     db.close();
   }

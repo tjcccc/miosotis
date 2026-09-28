@@ -8,12 +8,13 @@ import type { StoredBlob } from "../infra/blobs/store.js";
 import { assertTimezone } from "../infra/config/config.js";
 import { recordAudit } from "../infra/db/repos/audit.js";
 import { nextChangeSeq } from "../infra/db/repos/counters.js";
-import { insertBlob, insertLink, insertPayload } from "../infra/db/repos/files.js";
+import { insertLink, insertPayload } from "../infra/db/repos/files.js";
 import { findOperation, insertOperation } from "../infra/db/repos/operations.js";
 import { assignProject } from "../infra/db/repos/projects.js";
 import { insertChunks, insertSource, insertSourceVersion, setProcessingState } from "../infra/db/repos/sources.js";
 import { digestOf, textDigest } from "../infra/digest.js";
 import { chunkText } from "../infra/search/chunker.js";
+import { registerBlob } from "./blobs.js";
 import { reindex } from "./content.js";
 import { type AppContext, isoNow } from "./context.js";
 import { extractionPlan, initialFileStates, runExtraction } from "./extract.js";
@@ -173,7 +174,7 @@ export function capture(context: AppContext, input: CaptureRequestInput, actor: 
     for (const file of staged) {
       const fileId = newId("source", nowMs);
       register(fileId, "file", file.origin);
-      insertBlob(context.db, { sha256: file.blob.sha256, size: file.blob.size, mime: file.blob.mime, at });
+      registerBlob(context, file.blob, at);
       insertSourceVersion(context.db, {
         source_id: fileId,
         version: 1,

@@ -45,7 +45,7 @@ Talk normally, in any language. Some examples:
   miosotis backup create --output ~/OneDrive/miosotis-backups   # any folder, a cloud one is fine
   ```
   Keep the live `~/.miosotis` on a local disk, not inside OneDrive or iCloud.
-- Deleting: `ignore` and `trash` are reversible (`include`, `restore`). **Permanent deletion arrives in v0.3**, so for now don't save anything you might need to erase completely.
+- Removing: ask the agent to remove something and it goes to the trash, where you can look at it (`miosotis trash list`) or bring it back (`miosotis restore <ID>`). Emptying the trash deletes permanently. The agent shows exactly what will go, including reports that quote it, and asks you first. It can't reach backups or copies made earlier.
 
 ## Updating
 

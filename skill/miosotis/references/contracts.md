@@ -195,6 +195,46 @@ Rich page variant (`"format": "html"`), for example `--derived-from A-REVIEW`:
 
 - A `conflict` error means the source changed since you read it. Re-read and ask the user again.
 
+## Remove: `miosotis remove <S-id|A-id…> [--with-artifacts] [--confirm] --json`
+
+Without `--confirm` the call fails with `confirmation_required`; `error.details` is:
+
+```json
+{"sources": [{"id": "S-AAAA", "label": "Meeting notes", "state": "retained"}], "artifacts": [],
+ "citing_artifacts": [{"id": "A-CCCC", "title": "Monthly review", "action": "keep"}]}
+```
+
+- With `--confirm` it moves the items to the trash. The receipt holds `removed.sources|artifacts`, `already_in_trash`, and `kept_citing_artifacts`.
+- `--with-artifacts` moves the citing artifacts too (`action: "remove"`), and restoring the Source brings them back.
+
+## Trash: `miosotis trash list --json`, `miosotis restore [<ids…>] [--confirm] --json`
+
+- `trash list` returns `sources` (`id`, `label`, `trashed_at`, `cited_by`), `artifacts`, and `total`.
+- `restore <ids…>` returns `restored.sources|artifacts` and `not_in_trash`. An item deleted permanently fails with `validation`.
+- `restore` with no IDs restores everything and needs `--confirm`.
+
+## Empty the trash: `miosotis trash empty [<ids…>] [--keep-artifacts] [--confirm --plan <id>] --json`
+
+Review first (nothing changes). The call fails with `confirmation_required`, and `error.details.plan` is:
+
+```json
+{"plan_id": "3f9c0a1b2d4e",
+ "sources": [{"id": "S-AAAA", "kind": "text", "versions": 2, "title": "Meeting notes", "filenames": []}],
+ "artifacts": [{"id": "A-CCCC", "title": "Monthly review", "reason": "cites_source", "action": "undecided"}],
+ "datasets": [], "linked_sources_not_included": [{"id": "S-BBBB", "relation": "attached_file", "retention": "retained"}],
+ "files": {"erase": 0, "bytes": 0, "kept_shared": 0}, "needs_artifact_choice": true,
+ "effects": ["Permanently delete 1 Source(s) …", "1 artifact(s) cite them … Remove them to the trash and include them, or keep them with --keep-artifacts.", "…"]}
+```
+
+- The artifact `action` values:
+  - `delete`: a trashed artifact that is part of the selection
+  - `undecided`: cites the Sources and needs a decision
+  - `keep`: with `--keep-artifacts`
+- No IDs means everything in the trash. IDs that are not in the trash fail with `validation`.
+- Confirm with the same IDs and flags plus `--confirm --plan <plan_id>`. The receipt holds `purged.sources|artifacts|datasets`, `kept_artifacts`, `files_erased`, and `compacted`.
+- `conflict`: the library changed since the review. Show the new plan in `error.details.plan`.
+- `trash empty --resume` finishes an interrupted deletion; `doctor` reports one.
+
 ## Project membership: `miosotis source assign|unassign <S-id…> --project <slug> --json`
 
 ```bash

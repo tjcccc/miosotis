@@ -17,6 +17,8 @@ export function insertBlob(db: Database, blob: { sha256: string; size: number; m
     blob.mime,
     blob.at,
   ]);
+  // Referencing the bytes again cancels an erasure a purge left pending for them.
+  db.run("DELETE FROM pending_erasures WHERE kind = 'blob' AND target = ?", [blob.sha256]);
 }
 
 export function insertPayload(db: Database, row: PayloadRow): void {

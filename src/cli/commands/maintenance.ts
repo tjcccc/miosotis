@@ -42,7 +42,7 @@ export function registerBackup(program: Command, runtime: CliRuntime): void {
       });
     });
 
-  program
+  backup
     .command("restore")
     .description("Restore a backup into a new, empty data folder (never over the live library)")
     .argument("<dir>", "backup folder")
