@@ -6,6 +6,7 @@ import {
   fsyncSync,
   mkdirSync,
   openSync,
+  readdirSync,
   readFileSync,
   readSync,
   renameSync,
@@ -149,6 +150,22 @@ export class BlobStore {
 
   size(sha256: string): number {
     return statSync(this.path(sha256)).size;
+  }
+
+  /** Hashes of every stored file on disk (listed or not). */
+  list(): string[] {
+    const root = join(this.root, "sha256");
+    if (!existsSync(root)) {
+      return [];
+    }
+    return readdirSync(root).flatMap((prefix) => {
+      const directory = join(root, prefix);
+      return statSync(directory).isDirectory() ? readdirSync(directory).filter((name) => HASH_PATTERN.test(name)) : [];
+    });
+  }
+
+  modifiedAt(sha256: string): number {
+    return statSync(this.path(sha256)).mtimeMs;
   }
 
   /** Deletes a stored file (purge only; callers first make sure nothing references it). */

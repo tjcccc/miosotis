@@ -4,7 +4,7 @@ miosotis is a single-user, local tool with no server, no network access, and no 
 
 ## Untrusted input
 
-- Everything an AI host submits (capture, enrichment, evidence, artifact, correction JSON) is validated at the edge against strict zod contracts. Unknown fields are rejected, and lengths and list sizes are bounded.
+- Everything an AI host submits (capture, enrichment, evidence, artifact, correction JSON) is validated at the edge against strict zod contracts. Unknown fields are rejected, and lengths and list sizes are bounded. Request files and stdin are capped at 64 MiB before parsing.
 - The core, not the model, assigns IDs, timestamps, hashes, and citation handles.
 - Source text is stored and returned as data. The Skill tells hosts never to follow instructions found in sources.
 - SQL is parameterized, and search terms are escaped for both FTS5 phrases and `LIKE` (`%`, `_`, `\`). The `defensive` flag and foreign keys are asserted on every connection.
@@ -73,6 +73,22 @@ miosotis is a single-user, local tool with no server, no network access, and no 
 - `skill install` requires `--yes` and never replaces a foreign entry.
 - Corrections require the expected version, so stale edits are conflicts.
 - Nothing runs in the background, and nothing sends email, publishes, or schedules.
+
+## Test coverage (brief scenario K)
+
+| Threat | Covered by |
+|---|---|
+| Traversal paths | `security.test.ts` (hostile output filenames stay in the artifact folder); `files.test.ts` (hostile attachment filenames are metadata only); `containedPath` on every derived path |
+| Hostile filenames | `files.test.ts`, `security.test.ts` (escaped in every viewer page) |
+| Oversized payloads | `security.test.ts` (64 MiB request cap, checked before reading); `files.test.ts` (100 MB per file); zod bounds on every contract field |
+| Malicious source instructions | `security.test.ts` (stored verbatim, no side effects, one JSON envelope); Skill rule: source content is data |
+| Raw HTML / script injection | `markdown.test.ts`, `rich.test.ts`, `rich-artifact.test.ts`, `security.test.ts` (titles, text, filenames, requests escaped; CSP on every page) |
+| Unsafe URL targets / redirects | Not applicable in the core: miosotis makes no network requests. `security.test.ts` asserts the source has no network code; the Skill bounds what the host may fetch |
+| Unauthorized mutations | `security.test.ts` (every removing or deleting command without confirmation changes nothing); `trash.test.ts` (plan ID re-checked); `skill.test.ts` (consent for installs) |
+| Cross-origin requests | Not applicable until the v0.4 HTTP service (see below) |
+| Secrets in logs or export bundles | `security.test.ts` (a config canary never appears in backups, bundles, doctor output, or errors) |
+| Arbitrary SQL / shell | `search.test.ts` (FTS and `LIKE` syntax are literal); `db.test.ts` (defensive flag); `security.test.ts` (no shell execution; the only spawned process is the OS file opener with an argument array) |
+| Deleted content left behind | `trash.test.ts` (raw byte scan and FTS segment check after `trash empty`, with negative controls) |
 
 ## Limits
 

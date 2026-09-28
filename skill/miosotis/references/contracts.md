@@ -74,7 +74,7 @@ For a file Source whose extraction is pending (PDF, spreadsheet, HTML, …). Cop
 }
 ```
 
-- `text` is at most 2,000,000 chars. It is the file's content, not a summary.
+- `text` is at most 2,000,000 chars. It is the file's content, not a summary. The whole request is at most 64 MiB (about 100,000 rows × 20 columns of tables plus the text). If it doesn't fit, submit part of it and record partial coverage.
 - `segments` (optional) are ordered, non-overlapping UTF-16 spans of `text`. A locator has any of `page`, `sheet`, `range`, `section`. Chunks never cross a segment, and evidence items report `where` (for example `p. 2`).
 - For spreadsheets, use one segment per sheet, with the rows as TSV and `{"sheet": "Worksheet", "range": "A1:G551"}`, **and** a structured table per sheet:
   ```json

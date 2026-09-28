@@ -2,11 +2,11 @@
 
 miosotis is a local-first, AI-managed personal knowledge system. You express something; miosotis preserves it faithfully. Later you return with an intention (review, analysis, discussion), and it recovers the relevant evidence and produces durable, traceable artifacts.
 
-**Status: `0.3.0-alpha.1`** (0.3 adds permanent deletion and hardening to the 0.2 everyday release). Use it through an AI agent (Claude Code or Codex):
+**Status: `0.3.0`.** The version to share: everyday use through an AI agent (Claude Code or Codex), now with a trash, permanent deletion, export, and hardened recovery:
 - Save thoughts, files, images, and web links; the agent reads PDFs and spreadsheets with its own tools, and miosotis records what they contain.
 - Ask questions, get reviews and analyses with citations down to the page or cell, and numbers calculated by miosotis itself.
 - Keep deliverables (decks, PDFs, interactive pages) as artifacts.
-- Correct, undo, permanently delete (after a plan you confirm), back up, and restore.
+- Correct, undo, remove to the trash and restore, delete permanently (after a plan you confirm), back up, restore, and export everything as plain files.
 - Everything stays on your computer.
 
 New users: see **[docs/getting-started.md](docs/getting-started.md)**.
@@ -47,16 +47,22 @@ miosotis artifact list
 miosotis artifact open A-<id>                                  # refresh status banner, open in browser
 miosotis artifact export A-<id> --format md
 miosotis source correct S-<id> --expected-version 1 --request-file fix.json
-miosotis source ignore S-<id> --reason "wrong dataset"         # or include / trash --confirm / restore
+miosotis source ignore S-<id> --reason "wrong dataset"         # or include
+miosotis remove S-<id> --confirm                               # to the trash (restorable)
+miosotis trash list                                            # what's in the trash
+miosotis restore S-<id>                                        # back from the trash
+miosotis trash empty                                           # permanent: shows a plan, then --confirm --plan <id>
 miosotis backup create --output ~/OneDrive/miosotis-backups     # verified snapshot; restore with `miosotis backup restore`
+miosotis export --all --output ~/Desktop                       # the whole library as plain files
 miosotis undo                                                  # take back the last save (trash; restorable)
+miosotis repair                                                # clean up leftovers of interrupted work (lists first)
 miosotis prefs                                                 # reply language / timezone that AI hosts follow
 miosotis doctor
 ```
 
 ## AI-host protocol
 
-An AI host (the miosotis Skill in Claude Code, later Codex) supplies the intelligence and calls these commands with JSON on stdin (`--request-file -`). Full grammar and error codes: `docs/cli-contract.md`.
+An AI host (the miosotis Skill in Claude Code or Codex) supplies the intelligence and calls these commands with JSON on stdin (`--request-file -`). Full grammar and error codes: `docs/cli-contract.md`.
 
 ```bash
 miosotis enrich pending --json                                 # backlog of unenriched Sources
@@ -71,21 +77,22 @@ miosotis artifact create --request-file - --derived-from A-<id> [--supersedes]  
 
 - Every command accepts `--json` and then prints exactly one `miosotis.result.v1` envelope on stdout.
 - Agent JSON is validated; the core assigns IDs, times, hashes, and citation handles, and rejects citations outside the evidence run.
-- `miosotis review|analysis|discuss` need an AI model. In v0.1 the AI host does this work; without one, these commands say so instead of pretending.
+- `miosotis review|analysis|discuss` need an AI model. Until v0.4 the AI host does this work; without one, these commands say so instead of pretending.
 
 ## Data and configuration
 
 - Home: `~/.miosotis` (override with `MIOSOTIS_HOME`), containing `config.toml`. See `config.example.toml`.
 - Library: `data_dir` (default `~/.miosotis/data`). It is self-contained and can be moved whole, but keep the **live** library on a local disk. Do not put it in a live-synced folder (OneDrive, iCloud, Dropbox); use `[backup].dir` for cloud copies.
 
-## Honest limits (0.1.0)
+## Honest limits (0.3)
 
-- Text only. Attachments, URLs, PDF, and spreadsheets are v0.2.
 - The bare CLI has no model: saved text stays `enrichment pending` until an AI host applies enrichment.
+- PDFs, spreadsheets, and web pages are read by the AI host with its own tools; miosotis stores the originals, records what was extracted and how, and calculates numbers itself.
 - Retrieval is keyword-based (any language); paraphrase recall depends on the host's query variants and multilingual enrichment terms.
 - Structural citation checks prove a citation points at pinned evidence, not that the sentence is supported by it.
 - Claude Code and Codex are both live-tested (a note saved in Codex was found from Claude Code). There is no HTTP server or Web UI before v0.4.
-- `miosotis remove` moves items to the trash; `miosotis restore` brings them back. `miosotis trash empty` deletes permanently, after showing a plan you confirm.
+- Tested on macOS; Linux is expected to work; Windows is untested.
+- Permanent deletion (`trash empty`) can't reach backups, exports, or AI host transcripts made earlier.
 
 ## Development
 

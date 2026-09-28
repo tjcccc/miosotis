@@ -134,12 +134,15 @@ export function runDoctor(options: { env?: NodeJS.ProcessEnv; version: string })
       };
       const unindexed =
         db.get<{ n: number }>(
-          "SELECT count(*) AS n FROM sources s WHERE s.retention <> 'purged' AND NOT EXISTS (SELECT 1 FROM search_fts f WHERE f.source_id = s.id)",
+          "SELECT count(*) AS n FROM sources s WHERE s.retention = 'retained' AND NOT EXISTS (SELECT 1 FROM search_fts f WHERE f.source_id = s.id)",
         )?.n ?? 0;
       checks.push({
         name: "search_index",
         status: unindexed === 0 ? "ok" : "warn",
-        detail: unindexed === 0 ? "every source is indexed" : `${unindexed} sources missing from the search index`,
+        detail:
+          unindexed === 0
+            ? "every source is indexed"
+            : `${unindexed} sources missing from the search index; run \`miosotis repair\``,
       });
     }
     if (db.get<{ n: number }>("SELECT count(*) AS n FROM sqlite_master WHERE name = 'pending_erasures'")?.n === 1) {
@@ -175,8 +178,19 @@ export function runDoctor(options: { env?: NodeJS.ProcessEnv; version: string })
     detail:
       staging.length === 0
         ? "no leftover staging files"
-        : `${staging.length} leftover staging entries (safe to inspect)`,
+        : `${staging.length} leftover staging entries; \`miosotis repair\` removes settled ones`,
   });
+  if (config.backupDir !== undefined && existsSync(config.backupDir)) {
+    const partial = readdirSync(config.backupDir).filter((name) => /^miosotis-backup-.+\.partial$/.test(name));
+    checks.push({
+      name: "backups",
+      status: partial.length === 0 ? "ok" : "warn",
+      detail:
+        partial.length === 0
+          ? "no interrupted backups in the backup folder"
+          : `${partial.length} interrupted (.partial) backup(s) in the backup folder; \`miosotis repair\` removes them`,
+    });
+  }
   return finish(report);
 }
 
@@ -243,7 +257,7 @@ function blobChecks(databasePath: string, blobsDir: string): DoctorCheck[] {
       detail:
         orphans === 0
           ? "no unreferenced files"
-          : `${orphans} unreferenced files (left by an interrupted capture; kept, never auto-deleted)`,
+          : `${orphans} unreferenced files (left by an interrupted save; never auto-deleted; \`miosotis repair\` removes them after review)`,
     },
   ];
 }

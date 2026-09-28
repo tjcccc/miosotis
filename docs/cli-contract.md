@@ -23,7 +23,7 @@ One grammar serves people and AI hosts. The v0.4 HTTP service will expose the sa
 ## Input rules
 
 - Long or multilingual input goes through `--request-file <path>` or `--request-file -` (stdin), or `save --stdin` for raw text. Never build shell strings from user content.
-- Requests are validated against the contracts in `src/contracts/` (published as `skill/miosotis/schemas/*.schema.json`). Unknown fields are rejected.
+- Request files and stdin are limited to 64 MiB. Requests are validated against the contracts in `src/contracts/` (published as `skill/miosotis/schemas/*.schema.json`). Unknown fields are rejected.
 - `save`, `enrich apply`, `artifact create`, and `source correct` accept `idempotency_key`: the same key with the same request returns the original receipt, and the same key with a different request is a `conflict`.
 - Commands that remove or delete (`remove`, `source trash`, `artifact trash`, `undo`, `restore` with no IDs, `trash empty`) require `--confirm` and never prompt. `trash empty` also needs the `--plan <id>` of the plan it showed, and refuses if the library changed since. `skill install` requires `--yes`.
 - IDs are full type-prefixed IDs (`S-…`, `S-…@vN`, `P-…`, `E-…`, `A-…`). Projects may also be named by slug.
@@ -45,7 +45,9 @@ One grammar serves people and AI hosts. The v0.4 HTTP service will expose the sa
 | Tables | `table query --request-file [--save]` (deterministic calculation over host-extracted tables), `table get <T-id>` |
 | Evidence | `evidence prepare --request-file [--from E-id]`, `evidence get <E-id>` |
 | Artifacts | `artifact create --request-file [--derived-from A-id] [--supersedes]` (`format`: `markdown`, or `html` with a sandboxed page; `--assets embedded|linked` for html), `artifact get\|list\|sources\|open [--no-launch]\|export [--format md\|html\|json\|bundle] [--output]\|trash --confirm\|restore` (`files` in the create request attaches host-built outputs) |
-| Backup | `backup create [--output]`, `backup verify <dir>`, `backup restore <dir> --data-dir <empty>` |
+| Backup | `backup create [--output]`, `backup verify <dir>`, `backup restore <dir> --data-dir <empty>` (staged; warns that deletions made after the backup come back) |
+| Repair | `repair [--confirm]`: lists, then cleans up leftovers of interrupted work (see `docs/backup-and-retention.md`) |
+| Export | `export --all --output <dir> [--include-trash]`: the whole library as plain files (`miosotis.export.v1` index, each revision verbatim, originals, extracted text, artifacts); no model call |
 | Intents | `review\|analysis\|discuss` → `capability_unavailable` in v0.1 (use the Skill) |
 
 `source assign` has the same meaning as `save --project`: membership is explicit, and a new slug creates the project. `source unassign` removes membership and records an exclusion so AI suggestions cannot re-add it; the project must already exist. Both take several Sources (all-or-nothing), are idempotent (`already_explicit`, `not_member`), and reject unknown or trashed Sources.

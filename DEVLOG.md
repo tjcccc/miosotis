@@ -2,6 +2,65 @@
 
 Cross-session development log. Newest first. Keep entries short: what shipped, what was verified, what's open.
 
+## 2026-09-28 — v0.3.0 — Shareable release
+
+- **`miosotis export --all --output <dir> [--include-trash]`** writes the library as plain files, built as `.partial` and renamed when complete. No model call. It contains:
+  - every revision verbatim, original files, and extracted text
+  - each artifact's frozen Markdown and output files; interactive pages are stored as `page.html.txt`, so they can't run unsandboxed by accident
+  - a `miosotis.export.v1` `index.json` (projects, dates, hashes) and a readable `README.md`
+- **Getting started:** export, "If something goes wrong" (doctor output is safe to share; `repair`; `backup restore`), and "Uninstall" (Skills, the Codex config lines with their backup, the npm package, the data folder).
+- **README:** refreshed commands and limits for 0.3.
+- **Skill:** a health, backup, and export section.
+- **Dogfood:** checklist items 11–15 for the trash, restore, empty, and export flows in Claude Code and Codex.
+- `backup restore` never fails after the restored copy is in place: the live-library check behind the deletion-count warning falls back to the generic warning if the current library is damaged or busy. The old habit `miosotis restore <dir> --data-dir <folder>` now gets the `backup restore` hint instead of an unknown-option error.
+- The Skill says what to do when an extraction request exceeds the 64 MiB cap (submit part, mark coverage partial).
+- Verified:
+  - `pnpm check`;
+  - the export test (verbatim revisions, a binary original, extracted text, an HTML artifact as text, trash only with the flag, `--all` required);
+  - restore with a corrupt live library, and the old `restore … --data-dir` command line;
+  - `npm pack`, then an install of `miosotis-0.3.0.tgz` into an isolated prefix with a temporary HOME and CODEX_HOME:
+    - both Skill installs, including the Codex writable root;
+    - through the installed binary: save with an attachment, evidence, artifact, `remove` preview, `remove --with-artifacts`, `trash list`, `restore` (the report came back), `trash empty` review then confirm, search after deletion, `export --all`, `doctor`, `repair`.
+  - The owner ran dogfood items 11–15 in live Claude Code and Codex sessions: all OK.
+
+## 2026-09-28 — v0.3.0-alpha.3 — Security test set
+
+- **`tests/integration/security.test.ts`** covers the scenario K items that lacked a dedicated test:
+  - instructions inside saved content stay inert (verbatim, no side effects, one envelope);
+  - hostile titles, text, filenames, and requests are escaped in every viewer page, with CSP present;
+  - hostile output filenames stay inside the artifact folder;
+  - oversized requests and prototype keys are rejected;
+  - no removing or deleting command changes anything without confirmation;
+  - a config canary never reaches backups, bundles, doctor output, or errors;
+  - the core contains no shell execution and no network code.
+- **Request files and stdin are capped at 64 MiB**, checked before reading.
+- **`docs/security.md` maps every scenario K item** to the tests covering it.
+- Verified: `pnpm check`.
+
+## 2026-09-28 — v0.3.0-alpha.2 — Restore hardening and repair
+
+- **Staged restore.** `backup restore` assembles the library in a hidden sibling folder, migrates it, and checks integrity, foreign keys, and that every stored-file reference (including table blobs referenced only from JSON) resolves to a listed, present file. Only then is it renamed into place; a failure removes the staged copy.
+- **Restore warnings.** Every restore states when the backup was made, since anything removed or deleted after that comes back. When the backup came from the current library, it also counts the permanent deletions the restore undoes.
+- **`miosotis repair [--confirm]`.** Lists, then cleans up:
+  - finishing an interrupted deletion
+  - settled staging leftovers
+  - unreferenced stored files
+  - `.partial` backups in `[backup].dir`
+  - rendered folders of vanished artifacts
+  - missing search entries of retained Sources
+  
+  Anything younger than an hour is left alone, and orphan files are re-checked under the write lock before removal.
+- **Doctor:**
+  - the search-index check no longer counts trashed Sources, which are intentionally unindexed;
+  - new check for interrupted backups;
+  - leftover messages point to `repair`.
+- Verified:
+  - `pnpm check`;
+  - staged restore: a hash-valid backup with a dangling file reference fails and leaves no hidden folder or target;
+  - the restore warnings, including the deleted-after-backup count;
+  - `restore <dir>` → `backup restore` hint and the CLI path;
+  - repair of each leftover kind, fresh leftovers kept, a trashed Source not reindexed, doctor healthy afterwards.
+
 ## 2026-09-28 — v0.3.0-alpha.1 — Trash and permanent deletion
 
 - **Trash workflow** (owner design): nothing is deleted permanently unless it went through the trash.

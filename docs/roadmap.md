@@ -14,9 +14,9 @@ Direction agreed with the owner on 2026-09-27. Versions follow SemVer; minor ver
 | 0.2.0 | Multi-file artifacts (host-built decks, PDFs, images) with output safety checks and bundle export; shareable release (npm-pack tarball with both host Skills, Getting Started guide, doctor checks for Node and host tools) | done |
 | 0.2.x | Deterministic exports of stored content: Markdown → PDF (headless print) and DOCX; tables → CSV/XLSX | planned |
 | 0.3.0-alpha.1 | Trash workflow: `remove` (optionally with citing artifacts), `trash list`, `restore`, and `trash empty` as the only permanent deletion (reviewable plan, plan ID re-checked on confirm, explicit decision for citing artifacts); tombstones; erasure proven by a raw-byte scan; durable pending erasures; `backup restore` | done |
-| 0.3.0-alpha.2 | Restore hardening (staged restore, reference checks, "a backup made before a deletion brings it back" warning) and safe repair of leftovers | planned |
-| 0.3.0-alpha.3 | Security test set mapped to brief scenario K | planned |
-| 0.3.0 | Skill and docs, live Claude Code and Codex verification, release | planned |
+| 0.3.0-alpha.2 | Restore hardening (staged restore, foreign-key and file-reference checks, "a backup made before a deletion brings it back" warning) and `repair` for leftovers | done |
+| 0.3.0-alpha.3 | Security test set mapped to brief scenario K (`docs/security.md`), 64 MiB request cap | done |
+| 0.3.0 | Shareable release: `export --all`, uninstall and troubleshooting docs, Skill updates, tarball install check | done (owner verified dogfood 11–15 live in Claude Code and Codex) |
 | 0.4.0 | Local HTTP service over the same use cases; BYOK and local providers via `@priest-ai/core`; standalone `miosotis "…"` with AI | planned |
 | later | Web UI; subscription-backed runtime adapter; presentation decks; richer interactive templates | ideas |
 

@@ -23,8 +23,35 @@ An interrupted backup therefore never looks complete: it has no manifest or it k
 ## Restore
 
 - `miosotis backup restore <backup> --data-dir <new empty folder>`
-- It refuses non-empty targets and the live library. It verifies the database hash and integrity, and verifies every blob's hash while copying (a mismatch aborts). It then applies pending migrations and switches the copy to WAL.
+- **Refused targets:** non-empty folders and the live library.
+- **Checked while copying:** the database hash and integrity, and every stored file's hash (a mismatch aborts).
+- **Built in a hidden folder next to the target** (`.<name>.restoring-…`). Pending migrations are applied and the copy is switched to WAL, then checked again: integrity, foreign keys, and every stored-file reference resolving to a present file. Only then is it renamed into place. A failed or interrupted restore removes the hidden folder and never leaves a target that opens with missing files.
+- **Warnings:** the result always states when the backup was made, because anything removed or deleted after that comes back. When the backup came from the current library, it also counts the permanent deletions the restore brings back.
 - Afterwards, point `data_dir` (or `MIOSOTIS_HOME`) at the restored folder.
+
+## Export
+
+`miosotis export --all --output <dir>` writes the library as plain files in `miosotis-export-<time>/` (written as `.partial`, renamed when complete):
+- `sources/<S-id>/v<N>.txt`: every revision's text verbatim
+- `sources/<S-id>/files/`: the original files; `extracted.txt`: text extracted from them
+- `artifacts/<A-id>/content.md`: each report's frozen Markdown; `files/`: its output files
+- `page.html.txt`: an interactive page, stored as text so it can't run unsandboxed by accident
+- `index.json` (`miosotis.export.v1`) and a readable `README.md`
+
+Trashed items are included only with `--include-trash`; permanently deleted items have nothing left to export. An export is a copy: it isn't affected by later deletions.
+
+## Repair
+
+`miosotis repair` cleans up what interrupted work leaves behind. Without `--confirm` it only lists what it would do:
+
+- finish an interrupted deletion
+- delete leftover temporary files in `staging/`
+- delete stored files that nothing references (interrupted saves)
+- delete interrupted `.partial` backups in `[backup].dir`
+- delete rendered folders of artifacts that no longer exist
+- rebuild missing search entries for retained Sources
+
+It never touches anything the library references. Anything younger than an hour is left alone, because it may belong to a save or backup still running. `doctor` points to `repair` when it finds leftovers.
 
 ## Deletion levels
 

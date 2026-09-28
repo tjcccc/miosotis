@@ -1,4 +1,4 @@
-import type { Command } from "commander";
+import { type Command, Option } from "commander";
 import { resumePurge } from "../../app/purge.js";
 import { emptyTrash, removeItems, restoreItems, trashList } from "../../app/trash.js";
 import { MiosotisError } from "../../domain/errors.js";
@@ -40,9 +40,16 @@ export function registerTrash(program: Command, runtime: CliRuntime): void {
     .description("Bring items back from the trash (all of them with no IDs, after --confirm)")
     .argument("[ids...]", "S-<id> and/or A-<id>")
     .option("--confirm", "confirm restoring everything in the trash")
+    .addOption(new Option("--data-dir <path>").hideHelp())
     .option("--json", "print a JSON result envelope")
-    .action(async (ids: string[], options: JsonOption & { confirm?: boolean }) => {
+    .action(async (ids: string[], options: JsonOption & { confirm?: boolean; dataDir?: string }) => {
       await runCommand(runtime, options.json, () => {
+        if (options.dataDir !== undefined) {
+          throw new MiosotisError(
+            "usage",
+            `Backups are restored with \`miosotis backup restore ${ids[0] ?? "<dir>"} --data-dir ${options.dataDir}\`; \`miosotis restore\` brings items back from the trash.`,
+          );
+        }
         const result = inLibrary(runtime, (context) =>
           restoreItems(context, ids, { confirm: options.confirm === true }),
         );

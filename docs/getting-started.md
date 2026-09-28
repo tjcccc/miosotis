@@ -11,10 +11,10 @@ miosotis is a local-first memory for your notes, files, and web links. You talk 
 
 ## Install
 
-You'll get a file like `miosotis-0.2.1.tgz` from whoever shared miosotis with you:
+You'll get a file like `miosotis-0.3.0.tgz` from whoever shared miosotis with you:
 
 ```bash
-npm install -g ./miosotis-0.2.1.tgz
+npm install -g ./miosotis-0.3.0.tgz
 miosotis init --language en           # or ja, zh-CN, …; creates ~/.miosotis
 miosotis skill install --host claude-code --yes
 miosotis skill install --host codex --yes    # if you use Codex (it also prepares Codex's sandbox)
@@ -45,6 +45,10 @@ Talk normally, in any language. Some examples:
   miosotis backup create --output ~/OneDrive/miosotis-backups   # any folder, a cloud one is fine
   ```
   Keep the live `~/.miosotis` on a local disk, not inside OneDrive or iCloud.
+- Take everything out as plain files at any time (texts, original files, reports, and an index):
+  ```bash
+  miosotis export --all --output ~/Desktop
+  ```
 - Removing: ask the agent to remove something and it goes to the trash, where you can look at it (`miosotis trash list`) or bring it back (`miosotis restore <ID>`). Emptying the trash deletes permanently. The agent shows exactly what will go, including reports that quote it, and asks you first. It can't reach backups or copies made earlier.
 
 ## Updating
@@ -58,3 +62,21 @@ miosotis doctor
 ```
 
 The library upgrades itself on first use. Upgrades only go forward, which is why you back up first.
+
+## If something goes wrong
+
+- `miosotis doctor` checks the library and shows no note content, so its output is safe to share when asking for help.
+- `miosotis repair` lists leftovers of interrupted work (for example, a save cut off halfway) and cleans them up after `--confirm`.
+- To go back to a backup: `miosotis backup restore <backup folder> --data-dir <new empty folder>`, then point `data_dir` in `~/.miosotis/config.toml` at the new folder. Anything removed or deleted after that backup comes back.
+
+## Uninstall
+
+1. Optional: keep your data with `miosotis export --all --output <folder>` and/or `miosotis backup create --output <folder>`.
+2. Remove the Skills:
+   ```bash
+   miosotis skill uninstall --host claude-code
+   miosotis skill uninstall --host codex
+   ```
+3. Codex only: `skill install` added your library's `data` folder to `writable_roots` in `~/.codex/config.toml` (and `network_access = true` if you chose `--allow-network`). Remove those lines if you no longer want them. A backup of the file from before the change sits next to it (`config.toml.bak-miosotis-…`).
+4. Remove the command: `npm uninstall -g miosotis`.
+5. Delete your library only if you are sure: `rm -rf ~/.miosotis`. This is permanent; the trash is inside it.

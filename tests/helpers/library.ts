@@ -47,7 +47,7 @@ export interface CliRun {
   stdout: string;
   stderr: string;
   // biome-ignore lint/suspicious/noExplicitAny: assertions inspect arbitrary envelope payloads
-  json: () => { ok: boolean; data?: any; error?: { code: string; message: string } };
+  json: () => { ok: boolean; data?: any; warnings?: string[]; error?: { code: string; message: string } };
 }
 
 /** Runs the CLI in-process against an isolated home, capturing output. */

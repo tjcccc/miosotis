@@ -8,7 +8,14 @@ import { registerEvidence } from "./commands/evidence.js";
 import { registerExtract } from "./commands/extract.js";
 import { registerInit } from "./commands/init.js";
 import { registerIntents } from "./commands/intents.js";
-import { registerBackup, registerPrefs, registerSkill, registerUndo } from "./commands/maintenance.js";
+import {
+  registerBackup,
+  registerExport,
+  registerPrefs,
+  registerRepair,
+  registerSkill,
+  registerUndo,
+} from "./commands/maintenance.js";
 import { registerProject } from "./commands/project.js";
 import { collect, registerSave, type SaveOptions, saveAction } from "./commands/save.js";
 import { registerSearch } from "./commands/search.js";
@@ -44,6 +51,8 @@ export function buildProgram(runtime: CliRuntime): Command {
   registerBackup(program, runtime);
   registerUndo(program, runtime);
   registerTrash(program, runtime);
+  registerRepair(program, runtime);
+  registerExport(program, runtime);
   registerPrefs(program, runtime);
   registerSkill(program, runtime);
   registerIntents(program, runtime);

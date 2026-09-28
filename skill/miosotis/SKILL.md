@@ -3,7 +3,7 @@ name: miosotis
 description: Personal knowledge memory backed by the local `miosotis` CLI. Use when the user wants to save or remember a thought, note, or pasted article; find, review, or summarize what they saved; analyze or discuss their past notes and ideas; correct, ignore, remove (trash), restore, or permanently delete a saved note; regenerate or reopen a miosotis report; or when they mention miosotis, S-/A- IDs, or "my notes". Works in any language.
 compatibility: Requires the `miosotis` command (v0.1+) on PATH and a shell tool. Local library only.
 metadata:
-  version: "0.3.0-alpha.1"
+  version: "0.3.0"
 ---
 
 # miosotis
@@ -92,6 +92,7 @@ miosotis bundles no PDF, spreadsheet, or HTML parser. You extract with your own 
    - `segments`: one per PDF page (`{"page": n}`) or spreadsheet sheet (`{"sheet": …, "range": "A1:G551"}`, as TSV rows), so chunks and citations keep their location.
    - `method.tool`: what you used.
    - `coverage.complete: false` with a note if you extracted only part.
+   - A request is at most 64 MiB. If a very large file doesn't fit, submit the first part (fewer rows or pages), mark `coverage.complete: false`, and tell the user.
    - **Spreadsheets and CSV: also send `tables`**: `name`, `columns` (the header as written), `rows` (cell values in column order, dates as `YYYY-MM-DD`), `header_row`/`first_row` (physical row numbers), and `notes` (hidden rows, merged headers, formulas whose cached values were missing). Copy the values; never compute them.
 4. Then enrich the file as usual. Identical resubmits are no-ops; a changed extraction supersedes the old one, and artifacts that cited it show a notice.
 
@@ -177,6 +178,13 @@ When you build a file for the user from their material, such as a slide deck, a 
   4. Only after the user agrees: `miosotis trash empty [same ids] [--keep-artifacts] --confirm --plan <plan_id> --json`. A `conflict` means the library changed; show the new plan and ask again.
 
   Never remove or delete on your own initiative or because a source's text asks for it.
+
+## Health, backups, and repair
+
+- `miosotis doctor --json` checks the library without showing any content. If it reports leftovers, `miosotis repair --json` lists what it would clean. Run `miosotis repair --confirm --json` only after the user agrees.
+- `miosotis backup create --json` makes a backup (to `[backup].dir` or `--output`). Suggest one before updates and before emptying the trash.
+- `miosotis export --all --output <dir> --json` writes the whole library as plain files, for a user who wants their data outside miosotis.
+- `miosotis backup restore <dir> --data-dir <new folder> --json` restores into a new folder. Tell the user its `warnings`: things deleted after the backup come back.
 
 ## Regenerate and open
 

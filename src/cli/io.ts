@@ -1,13 +1,26 @@
-import { readFileSync } from "node:fs";
+import { readFileSync, statSync } from "node:fs";
 import { MiosotisError } from "../domain/errors.js";
+
+/** Upper bound for a request file or stdin. Contracts bound each field; this bounds memory first. */
+export const MAX_REQUEST_BYTES = 64 * 1024 * 1024;
+
+function tooLarge(): MiosotisError {
+  return new MiosotisError("validation", `Request is larger than ${MAX_REQUEST_BYTES / 1024 / 1024} MiB`);
+}
 
 export async function readStdin(): Promise<string> {
   if (process.stdin.isTTY) {
     throw new MiosotisError("usage", "Expected input on stdin, but stdin is a terminal");
   }
   const chunks: Buffer[] = [];
+  let bytes = 0;
   for await (const chunk of process.stdin) {
-    chunks.push(typeof chunk === "string" ? Buffer.from(chunk) : (chunk as Buffer));
+    const buffer = typeof chunk === "string" ? Buffer.from(chunk) : (chunk as Buffer);
+    bytes += buffer.byteLength;
+    if (bytes > MAX_REQUEST_BYTES) {
+      throw tooLarge();
+    }
+    chunks.push(buffer);
   }
   return Buffer.concat(chunks).toString("utf8");
 }
@@ -24,8 +37,14 @@ export async function readRequestFile(path: string): Promise<unknown> {
 
 function readFile(path: string): string {
   try {
+    if (statSync(path).size > MAX_REQUEST_BYTES) {
+      throw tooLarge();
+    }
     return readFileSync(path, "utf8");
   } catch (error) {
+    if (error instanceof MiosotisError) {
+      throw error;
+    }
     throw new MiosotisError("not_found", `Cannot read request file ${path}: ${(error as Error).message}`);
   }
 }

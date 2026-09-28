@@ -1,8 +1,11 @@
 import type { Command } from "commander";
 import { createBackup, restoreBackup, verifyBackup } from "../../app/backup.js";
 import { withContextAsync } from "../../app/context.js";
+import { exportLibrary } from "../../app/export.js";
+import { repair } from "../../app/repair.js";
 import { installSkill, skillStatus, uninstallSkill } from "../../app/skill.js";
 import { undoLastCapture } from "../../app/undo.js";
+import { MiosotisError } from "../../domain/errors.js";
 import { loadConfig } from "../../infra/config/config.js";
 import { type CliRuntime, inLibrary, type JsonOption, runCommand } from "../runtime.js";
 
@@ -53,7 +56,12 @@ export function registerBackup(program: Command, runtime: CliRuntime): void {
         const result = restoreBackup(directory, { dataDir: options.dataDir, env: runtime.env });
         return {
           data: result,
-          human: `Restored to ${result.data_dir} (schema v${result.schema_version}).\n${result.next_step}`,
+          human: [
+            `Restored to ${result.data_dir} (schema v${result.schema_version}).`,
+            ...result.warnings.map((w) => `! ${w}`),
+            result.next_step,
+          ].join("\n"),
+          warnings: result.warnings,
         };
       });
     });
@@ -137,6 +145,47 @@ export function registerSkill(program: Command, runtime: CliRuntime): void {
           ),
         ];
         return { data: status, human: lines.join("\n") };
+      });
+    });
+}
+
+export function registerExport(program: Command, runtime: CliRuntime): void {
+  program
+    .command("export")
+    .description("Write the library as plain files (texts, originals, artifacts, index) to take your data anywhere")
+    .option("--all", "export every Source and artifact")
+    .requiredOption("--output <dir>", "folder to write the export into")
+    .option("--include-trash", "also export items in the trash")
+    .option("--json", "print a JSON result envelope")
+    .action(async (options: JsonOption & { all?: boolean; output: string; includeTrash?: boolean }) => {
+      await runCommand(runtime, options.json, () => {
+        if (options.all !== true) {
+          throw new MiosotisError("usage", "Choose what to export: --all (the whole library)");
+        }
+        const result = inLibrary(runtime, (context) =>
+          exportLibrary(context, { output: options.output, includeTrash: options.includeTrash === true }),
+        );
+        return {
+          data: result,
+          human: `Exported ${result.sources} Source(s) and ${result.artifacts} artifact(s) to ${result.path}`,
+        };
+      });
+    });
+}
+
+export function registerRepair(program: Command, runtime: CliRuntime): void {
+  program
+    .command("repair")
+    .description("Clean up leftovers of interrupted work (lists them first; nothing referenced is touched)")
+    .option("--confirm", "apply the listed repairs")
+    .option("--json", "print a JSON result envelope")
+    .action(async (options: JsonOption & { confirm?: boolean }) => {
+      await runCommand(runtime, options.json, () => {
+        const result = inLibrary(runtime, (context) => repair(context, { confirm: options.confirm === true }));
+        const human = result.changed
+          ? ["Repaired:", ...result.actions.map((line) => `- ${line}`), ...result.warnings].join("\n")
+          : "Nothing to repair.";
+        return { data: result, human, warnings: result.warnings };
       });
     });
 }
