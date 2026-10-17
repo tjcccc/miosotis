@@ -64,6 +64,17 @@ describe("CLI contract", () => {
     expect(badOption.json()).toMatchObject({ ok: false, error: { code: "usage" } });
   });
 
+  it("shows a pending confirmation as a notice, not an error, with the same exit code", async () => {
+    await cli(env, "save", "a note", "--json");
+    const human = await cli(env, "undo");
+    expect(human.code).toBe(5);
+    expect(human.stderr).toMatch(/^Needs confirmation: .*--confirm/);
+    expect((await cli(env, "undo", "--json")).json()).toMatchObject({
+      ok: false,
+      error: { code: "confirmation_required" },
+    });
+  });
+
   it("explains that high-level intents need an AI host", async () => {
     const run = await cli(env, "review", "this year's notes", "--json");
     expect(run.code).toBe(6);

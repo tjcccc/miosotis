@@ -8,3 +8,4 @@
   writable_roots = ["/Users/<you>/.miosotis"]
   network_access = true
   ```
+- Background enrichment: a save you run reports `background_enrichment.state: "unavailable"`, because a nested Codex cannot run inside your sandbox. Enrich the note yourself as usual; the warning about it is expected.

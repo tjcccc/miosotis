@@ -6,7 +6,13 @@ import { capture } from "../../src/app/capture.js";
 import { pendingEnrichment } from "../../src/app/enrich.js";
 import { listSchedule } from "../../src/app/schedule.js";
 import { search } from "../../src/app/search.js";
-import { disableEnrichWorker, enableEnrichWorker, runEnrichWorker, WORKER_MAX_ATTEMPTS } from "../../src/app/worker.js";
+import {
+  disableEnrichWorker,
+  enableEnrichWorker,
+  runEnrichWorker,
+  startEnrichWorker,
+  WORKER_MAX_ATTEMPTS,
+} from "../../src/app/worker.js";
 import { WorkerEnrichmentOutput } from "../../src/contracts/enrichment.js";
 import { dropNulls, strictJsonSchema } from "../../src/contracts/strict-schema.js";
 import { planEnrichTableEdit } from "../../src/infra/config/config-edit.js";
@@ -128,6 +134,15 @@ describe("enrich run", () => {
     const capped = await runEnrichWorker({ env });
     expect(capped).toMatchObject({ results: [], capped: 2 });
     expect(codexCalls()).toHaveLength(before);
+  });
+
+  it("does not start from inside the Codex sandbox, where a nested Codex cannot run", async () => {
+    await enable();
+    expect(startEnrichWorker({ ...env, CODEX_SANDBOX: "seatbelt" })).toMatchObject({
+      state: "unavailable",
+      detail: expect.stringMatching(/Codex sandbox/),
+    });
+    expect(startEnrichWorker({ ...env, PATH: "" })?.detail).not.toMatch(/sandbox/);
   });
 
   it("sends notes saved before it was enabled only on request", async () => {

@@ -20,6 +20,8 @@ One grammar serves people and AI hosts. The v0.5 HTTP service will expose the sa
 | 5 | `validation`, `confirmation_required` |
 | 6 | `capability_unavailable`, `library_not_initialized`, `schema_too_new`, `environment` |
 
+In human mode, a `confirmation_required` stop prints `Needs confirmation: …` on stderr instead of `error: …`, because nothing failed and nothing changed. The exit code and the JSON envelope are the same as for any other stop.
+
 ## Input rules
 
 - Long or multilingual input goes through `--request-file <path>` or `--request-file -` (stdin), or `save --stdin` for raw text. Never build shell strings from user content.
@@ -103,7 +105,7 @@ miosotis artifact create --request-file new.json --derived-from A-… --json   #
 
 **Background enrichment (opt-in, off by default).** `enrich worker enable --provider codex` turns it on.
 - **Enable:** finds the real `codex` executable (skipping wrapper folders such as cmux's `cmux-cli-shims`) and requires `codex login status` to succeed. Without `--yes` it returns `confirmation_required` with what it would do. With `--yes` it runs one test on a made-up note and then writes `[enrich]` to `config.toml`, including `enabled_at`. miosotis never reads or stores Codex credentials.
-- **After a save:** the save starts `enrich run` detached. The save receipt's `data.background_enrichment` is `null` when the worker is off, or `{provider, state: started|running|unavailable, detail}`. A failure to start is a warning, never a failed save.
+- **After a save:** the save starts `enrich run` detached. The save receipt's `data.background_enrichment` is `null` when the worker is off, or `{provider, state: started|running|unavailable, detail}`. A failure to start is a warning, never a failed save. Inside the Codex sandbox (`CODEX_SANDBOX` is set) it is always `unavailable`: a nested Codex fails there with "Operation not permitted", so the host enriches the note itself.
 - **`enrich run [--backlog]`:** enriches pending notes oldest first, one worker at a time (a lock file).
   - It sends only notes saved since `enabled_at`. `--backlog` also sends the older ones; the consent message and `status` show how many there are.
   - It skips notes that need file extraction or image reading, and notes whose answer was rejected 3 times (tool use, or invalid JSON or contract).

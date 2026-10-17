@@ -2,6 +2,19 @@
 
 Cross-session development log. Newest first. Keep entries short: what shipped, what was verified, what's open.
 
+## 2026-10-17 — v0.5.0-alpha.2 — Polish after the first live run
+
+- **Confirmations read as notices:** in human mode, a `confirmation_required` stop now prints `Needs confirmation: …` instead of `error: …`, since nothing failed or changed. The exit code (5) and the JSON envelope are unchanged. The owner found `enrich worker enable` without `--yes` looked like a failure.
+- **No "0 notes waiting" sentence:** `enable` mentions the backlog only when there is one.
+- **Saves from inside Codex:**
+  - Tested live: a sandboxed Codex session ran `miosotis save` with the worker on. The nested `codex exec` failed with "failed to initialize in-process app-server client: Operation not permitted". The outage rule held: no attempt was counted and the note stayed pending.
+  - But the receipt said `started`, so the Skill would have told Codex not to enrich.
+  - Fix: when `CODEX_SANDBOX` is set (Codex sets it for its sandboxed commands), the save reports `background_enrichment.state: "unavailable"` with the reason, and the host enriches the note itself. The Codex host notes say so.
+- **Roadmap catch-up:** rows for 0.4.1, 0.4.2, 0.5.0-alpha.1/2, and the planned 0.5.0-alpha.3 (Ollama and ChatGPT-plan sign-in, the owner's provider priority).
+- **Verified:**
+  - `pnpm check`. New tests cover the confirmation notice (exit code and JSON unchanged) and the sandbox rule.
+  - The live sandboxed-Codex save was re-run against the rebuilt CLI: it now reports `unavailable` with "saved from inside the Codex sandbox, which cannot run Codex".
+
 ## 2026-10-17 — v0.5.0-alpha.1 — Background enrichment with Codex
 
 - **Problem (from `TODO.md`):** saving through an agent took 30–80 s per note, while the save itself takes about 100 ms.

@@ -343,6 +343,11 @@ export function startEnrichWorker(env: NodeJS.ProcessEnv): WorkerStart | null {
   const provider = PROVIDER_LABEL[worker.provider];
   try {
     const paths = workerPaths(config);
+    // Codex's sandbox (it sets CODEX_SANDBOX for its commands) cannot run a nested Codex: it fails
+    // with "Operation not permitted". The AI host is right there and enriches the note itself.
+    if (env.CODEX_SANDBOX !== undefined && env.CODEX_SANDBOX !== "") {
+      return { provider, state: "unavailable", detail: "saved from inside the Codex sandbox, which cannot run Codex" };
+    }
     if (!isExecutable(worker.codexPath)) {
       return { provider, state: "unavailable", detail: `Codex not found at ${worker.codexPath}` };
     }
@@ -503,7 +508,11 @@ export async function enableEnrichWorker(options: EnableOptions): Promise<Enable
       "confirmation_required",
       [
         `This will send the text of each note you save from now on to Codex (${codexPath}, signed in: ${login.detail}) in the background, using your Codex plan.`,
-        `The ${backlog} note(s) already waiting for enrichment are not sent unless you run \`miosotis enrich run --backlog\`.`,
+        ...(backlog > 0
+          ? [
+              `The ${backlog} note(s) already waiting for enrichment are not sent unless you run \`miosotis enrich run --backlog\`.`,
+            ]
+          : []),
         "Codex gets no tools and only returns a summary, search terms, and schedule entries; miosotis checks and stores them.",
         "It runs one test on a made-up note first, then adds [enrich] to config.toml. Re-run with --yes.",
       ].join(" "),

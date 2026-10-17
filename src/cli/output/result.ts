@@ -53,6 +53,9 @@ export function emitError(error: unknown, json: boolean, streams: OutputStreams)
         },
       })}\n`,
     );
+  } else if (failure.code === "confirmation_required") {
+    // Not a failure: nothing was changed yet, and the message says how to go ahead.
+    streams.stderr(`Needs confirmation: ${failure.message}\n`);
   } else {
     streams.stderr(`error: ${failure.message}\n`);
   }
