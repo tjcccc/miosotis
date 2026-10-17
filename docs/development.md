@@ -13,7 +13,7 @@ pnpm build
 npm link                                         # global `miosotis` (links dist/; rerun pnpm build after changes)
 miosotis init                                    # creates ~/.miosotis (or $MIOSOTIS_HOME)
 miosotis skill install --host claude-code --yes  # copies the Claude Code version into ~/.claude/skills
-miosotis skill install --host codex --yes        # copies the Codex version into ~/.agents/skills (see docs/skill.md for its sandbox)
+miosotis skill install --host codex --yes        # copies the Codex version into ~/.codex/skills (see docs/skill.md for its sandbox)
 ```
 
 - Undo with `miosotis skill uninstall --host claude-code` and `npm unlink -g miosotis`.

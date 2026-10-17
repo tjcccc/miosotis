@@ -81,7 +81,7 @@ describe("skill install", () => {
 
   it("never replaces an existing non-miosotis entry", () => {
     const env = { HOME: home };
-    const target = join(home, ".agents", "skills", "miosotis");
+    const target = join(home, ".codex", "skills", "miosotis");
     mkdirSync(target, { recursive: true });
     writeFileSync(join(target, "SKILL.md"), "someone else's skill");
     expect(() => installSkill({ host: "codex", yes: true, env })).toThrow(/not this miosotis Skill/);

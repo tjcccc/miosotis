@@ -28,7 +28,7 @@ import { VERSION } from "../version.js";
 
 export const SKILL_HOSTS = {
   "claude-code": { label: "Claude Code", relative: [".claude", "skills"] },
-  codex: { label: "Codex", relative: [".agents", "skills"] },
+  codex: { label: "Codex", relative: [".codex", "skills"] },
 } as const;
 
 export type SkillHost = keyof typeof SKILL_HOSTS;

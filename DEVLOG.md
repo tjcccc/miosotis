@@ -2,6 +2,12 @@
 
 Cross-session development log. Newest first. Keep entries short: what shipped, what was verified, what's open.
 
+## 2026-10-17 — v0.4.2 — Codex Skill installs to ~/.codex/skills
+
+- **`skill install --host codex`** now copies the Skill to `~/.codex/skills/miosotis` instead of `~/.agents/skills/miosotis` (owner request). `skill status`/`uninstall` follow the same path; a copy left under `~/.agents/skills` is no longer managed and can be removed by hand.
+- Docs (`docs/skill.md`, `docs/development.md`) and the foreign-entry test updated.
+- Verified: typecheck, lint, build, and 181/182 tests pass, including all Skill tests. The one failure, `schedule > answers from the CLI`, fails the same way without this change: it hardcodes an event on 2026-09-28 but queries `--days 3` from the real clock.
+
 ## 2026-09-28 — v0.4.1 — User-facing README, ready for npm
 
 - **README rewritten for users**, because it becomes the npm page: what miosotis is, install with `npm install -g miosotis`, example prompts, handy terminal commands, your data, good-to-know limits, and doc links.
