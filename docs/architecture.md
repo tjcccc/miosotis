@@ -22,6 +22,7 @@ future HTTP service ───────────┤
 - `src/domain/tables.ts` is the pure calculation engine. Numbers in reports come from it, never from a model.
 - `src/domain` and `src/contracts` import no Node APIs and nothing from `infra`, so the rules and contracts stay reusable by the v0.5 service and future clients.
 - `src/infra` implements storage and I/O. `infra` never imports `app` or `cli`. Only `src/infra/db/database.ts` imports `node:sqlite`.
+- Processes: only three files start one, each with an argument array and no shell (a security test enforces this). `src/app/artifacts.ts` runs the OS "open" helper. `src/infra/process/detached.ts` starts the background worker (this CLI). `src/infra/codex/exec.ts` runs the worker's tool-less `codex exec` turn.
 
 Built-in importers sit behind the small `Importer` interface in `src/infra/importers/registry.ts`, which is the plugin seam. Only the text/Markdown importer ships; everything else is extracted by the AI host and recorded through `extract apply`, keeping miosotis small.
 
@@ -37,6 +38,11 @@ The core deliberately calls `infra` repositories directly instead of going throu
 ## Model ownership
 
 v0.1 has no model runner of its own. The AI host running the Skill (Claude Code or Codex) supplies all intelligence and submits schema-validated results through the CLI (`host_agent` mode). The core records generator metadata but never invents a model name. The v0.5 service adds its own providers (BYOK/subscription) through `@priest-ai/core`, behind the same use cases.
+
+**Background enrichment (v0.5.0-alpha.1, opt-in).** `src/app/worker.ts` enriches pending notes without a person in the loop.
+- It builds the same packet as `enrich prepare` (with the shared `TEXT_GUIDANCE`) and asks a provider for the content fields only (`WorkerEnrichmentOutput`, sent as a strict JSON Schema).
+- It stores the answer through `applyEnrichment` with `external_runtime` provenance. The model never runs miosotis commands or touches the database.
+- The first provider is the user's own signed-in Codex CLI. Direct BYOK providers can plug into the same worker later.
 
 ## Search
 

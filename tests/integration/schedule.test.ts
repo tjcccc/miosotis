@@ -6,7 +6,7 @@ import { listSchedule } from "../../src/app/schedule.js";
 import { renderSchedule } from "../../src/cli/templates/schedule.js";
 import { displayWidth } from "../../src/cli/templates/width.js";
 import type { CancelRequestInput, EventRequestInput } from "../../src/contracts/enrichment.js";
-import { cli, createTestLibrary, type TestLibrary } from "../helpers/library.js";
+import { cli, cliAt, createTestLibrary, type TestLibrary } from "../helpers/library.js";
 
 let library: TestLibrary;
 
@@ -259,7 +259,7 @@ describe("schedule", () => {
 
   it("answers from the CLI, in JSON and as text", async () => {
     saveWithEvents("Dentist today at 18:00.", [{ title: "Dentist", start: { date: "2026-09-28", time: "18:00" } }]);
-    const json = await cli(library.env, "schedule", "--days", "3", "--json");
+    const json = await cliAt(() => NOW, library.env, "schedule", "--days", "3", "--json");
     expect(json.json()).toMatchObject({ ok: true, data: { total: 1 } });
     const human = await cli(library.env, "schedule", "--from", "2030-01-01", "--to", "2030-01-02");
     expect(human.stdout).toContain("Nothing scheduled.");

@@ -26,13 +26,45 @@ import { requireSource, requireVersion } from "./sources.js";
 /** Maximum text handed to the host for lightweight enrichment. Longer sources get partial coverage. */
 export const ENRICH_MAX_CHARS = 12_000;
 
-/** Sources whose current revision still needs enrichment (pending or failed), oldest first. */
-export function pendingEnrichment(context: AppContext, options: { limit?: number } = {}) {
+/** Guidance for enriching text, shared by the AI host (`enrich prepare`) and the background worker. */
+export const TEXT_GUIDANCE = [
+  "Summarize what the text says; do not judge whether it is true.",
+  "Attribute claims: quoted or imported material is not the user's belief.",
+  "Add retrieval terms in the languages the user is likely to search in, including translations.",
+  "Suggest only existing project IDs; leave suggestions empty when unsure.",
+  "Report coverage honestly when you read only part of the text.",
+  "If the source states a dated arrangement (meeting, appointment, trip), add `events`: resolve relative dates ('next Monday') from received_at in timezone, keep the stated precision (a date, a part of day, or a clock time), and never invent a time.",
+] as const;
+
+/** How an enrichment was produced (`derived_records.method`). */
+export interface EnrichmentProvenance {
+  method: "host_agent" | "external_runtime";
+  model?: string | null;
+}
+
+/**
+ * Sources whose current revision still needs enrichment (pending or failed), oldest first.
+ * `savedSince` and `maxAttempts` narrow the list for the background worker.
+ */
+export function pendingEnrichment(
+  context: AppContext,
+  options: { limit?: number; savedSince?: string; maxAttempts?: number } = {},
+) {
   const limit = options.limit ?? 20;
   if (!Number.isInteger(limit) || limit < 1 || limit > 200) {
     throw new MiosotisError("validation", "limit must be an integer between 1 and 200");
   }
-  const where = `ps.stage = 'enrichment' AND ps.state IN ('pending', 'failed')`;
+  const filters: string[] = [];
+  const params: (string | number)[] = [];
+  if (options.savedSince !== undefined) {
+    filters.push("s.created_at >= ?");
+    params.push(options.savedSince);
+  }
+  if (options.maxAttempts !== undefined) {
+    filters.push("ps.attempts < ?");
+    params.push(options.maxAttempts);
+  }
+  const where = [`ps.stage = 'enrichment' AND ps.state IN ('pending', 'failed')`, ...filters].join(" AND ");
   const rows = context.db.all<{
     id: string;
     current_version: number;
@@ -51,11 +83,12 @@ export function pendingEnrichment(context: AppContext, options: { limit?: number
      WHERE ${where}
      ORDER BY s.created_at ASC, s.id ASC
      LIMIT ?`,
-    [limit],
+    [...params, limit],
   );
   const total =
     context.db.get<{ n: number }>(
       `SELECT count(*) AS n FROM visible_sources s JOIN processing_states ps ON ps.source_id = s.id AND ps.version = s.current_version WHERE ${where}`,
+      params,
     )?.n ?? 0;
   return {
     total,
@@ -124,14 +157,9 @@ export function prepareEnrichment(context: AppContext, reference: string) {
     text,
     contract: "miosotis.enrichment.v1 (see skill/miosotis/schemas/enrichment.schema.json)",
     guidance: [
-      "Summarize what the text says; do not judge whether it is true.",
-      "Attribute claims: quoted or imported material is not the user's belief.",
-      "Add retrieval terms in the languages the user is likely to search in, including translations.",
-      "Suggest only existing project IDs; leave suggestions empty when unsure.",
-      "Report coverage honestly when you read only part of the text.",
+      ...TEXT_GUIDANCE,
       "For images: look at the file and add `interpretations` bound to its sha256; transcribe only what is legible and mark uncertain readings.",
       "If extraction_needed is true: read the file with your own tools, submit its text with `miosotis extract apply`, then prepare again.",
-      "If the source states a dated arrangement (meeting, appointment, trip), add `events`: resolve relative dates ('next Monday') from received_at in timezone, keep the stated precision (a date, a part of day, or a clock time), and never invent a time.",
     ],
   };
 }
@@ -152,7 +180,11 @@ export interface EnrichmentReceipt {
  * Stores host-generated enrichment as a derived record bound to an exact revision. Agent JSON is
  * untrusted: it is validated, bounded, and can never modify the original text or explicit membership.
  */
-export function applyEnrichment(context: AppContext, input: EnrichmentRequestInput): EnrichmentReceipt {
+export function applyEnrichment(
+  context: AppContext,
+  input: EnrichmentRequestInput,
+  provenance: EnrichmentProvenance = { method: "host_agent" },
+): EnrichmentReceipt {
   let request: EnrichmentRequest;
   try {
     request = parseContract(EnrichmentSchema, input, "enrichment request");
@@ -194,7 +226,6 @@ export function applyEnrichment(context: AppContext, input: EnrichmentRequestInp
         warnings.push(`ignored unknown project suggestion ${JSON.stringify(candidate)}`);
       }
     }
-    // Without a reported coverage, assume the host read only what `prepare` provided.
     const readableLength = readableText(context, sourceId, version.version).text.length;
     // Without a reported coverage, assume the host read only what `prepare` provided.
     const coverage = request.coverage ?? {
@@ -230,8 +261,8 @@ export function applyEnrichment(context: AppContext, input: EnrichmentRequestInp
       version: version.version,
       kind: "enrichment",
       input_digest: request.source_ref.input_digest,
-      method: "host_agent",
-      model: request.model ?? null,
+      method: provenance.method,
+      model: provenance.model ?? request.model ?? null,
       schema_version: ENRICHMENT_SCHEMA_VERSION,
       pipeline_version: ENRICHMENT_PIPELINE_VERSION,
       status,
@@ -276,8 +307,8 @@ export function applyEnrichment(context: AppContext, input: EnrichmentRequestInp
         version: version.version,
         kind: "interpretation",
         input_digest: `sha256:${interpretation.payload_sha256}`,
-        method: "host_agent",
-        model: request.model ?? null,
+        method: provenance.method,
+        model: provenance.model ?? request.model ?? null,
         schema_version: ENRICHMENT_SCHEMA_VERSION,
         pipeline_version: ENRICHMENT_PIPELINE_VERSION,
         status: "complete",
@@ -368,6 +399,18 @@ function recordFailure(context: AppContext, input: unknown, error: unknown): voi
   if (typeof ref?.id !== "string" || typeof ref.version !== "number") {
     return;
   }
+  recordEnrichmentFailure(context, { id: ref.id, version: ref.version }, error);
+}
+
+/**
+ * Marks the current revision's enrichment failed (counting an attempt), unless the revision moved
+ * on or already has an enrichment. The Source itself is never touched.
+ */
+export function recordEnrichmentFailure(
+  context: AppContext,
+  ref: { id: string; version: number },
+  error: unknown,
+): void {
   const id = ref.id.trim().toUpperCase();
   const version = ref.version;
   if (!isId("source", id)) {

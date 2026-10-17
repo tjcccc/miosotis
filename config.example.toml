@@ -16,3 +16,11 @@
 [backup]
 # Default destination for `miosotis backup create` (a cloud-synced folder is fine here).
 # dir = "~/OneDrive/miosotis-backups"
+
+[enrich]
+# Opt-in background enrichment of new notes. Set it up with `miosotis enrich worker enable --provider codex`
+# rather than by hand: it checks Codex, runs a test, and writes these keys.
+# worker = "codex"
+# codex_path = "/absolute/path/to/codex"
+# model = "<model>"            # optional; Codex's default otherwise
+# reasoning_effort = "low"     # minimal | low | medium | high

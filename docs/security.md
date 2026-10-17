@@ -2,6 +2,17 @@
 
 miosotis is a single-user, local tool with no server, no network access, and no telemetry. Its security job is to keep untrusted content inert and every mutation deliberate.
 
+## Background enrichment (opt-in)
+
+- **Off by default.** `miosotis enrich worker enable --provider codex --yes` turns it on after a consent message. From then on, the text of each note saved after that moment goes to Codex (OpenAI) through the user's own signed-in Codex CLI. Notes saved earlier are sent only by an explicit `miosotis enrich run --backlog`. miosotis itself still makes no network calls and never reads Codex credentials.
+- **Codex gets no tools.** Each note is one `codex exec` turn with:
+  - `--ignore-user-config --ignore-rules --ephemeral` and a read-only sandbox, started from an empty scratch folder;
+  - the shell tool, hooks, apps, plugins, browser and computer use, and web search all turned off.
+  
+  If the event stream shows any tool use, the answer is rejected and the note marked failed. Verified live on 2026-10-17: with the shell tool off, Codex reported it had no way to run a command, even when the prompt asked it to run one.
+- **The note is data.** It is passed as a JSON string value, never as instructions. The answer is validated against the enrichment contract, and miosotis binds it to the revision itself. A malicious note can at worst produce a wrong summary for itself; it cannot change other notes or run commands.
+- **Wrappers are skipped.** `enable` stores the absolute path of the real `codex` and skips wrapper folders on PATH (cmux's `cmux-cli-shims`), whose hooks would otherwise receive the prompt.
+
 ## Untrusted input
 
 - Everything an AI host submits (capture, enrichment, evidence, artifact, correction JSON) is validated at the edge against strict zod contracts. Unknown fields are rejected, and lengths and list sizes are bounded. Request files and stdin are capped at 64 MiB before parsing.

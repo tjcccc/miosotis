@@ -52,6 +52,8 @@ The AI host (the miosotis Skill in Claude Code or Codex) supplies the intelligen
 miosotis enrich pending --json                                 # backlog of unenriched Sources
 miosotis enrich prepare S-<id> --json                          # bounded text + input digest
 miosotis enrich apply --request-file - --json                  # miosotis.enrichment.v1 (including schedule events)
+miosotis enrich worker enable --provider codex                 # opt-in: Codex enriches new notes in the background
+miosotis enrich worker status                                  # is it on, signed in, running; recent results
 miosotis search "meeting notes" --json                         # candidates, any language
 miosotis table query --request-file - --save --json            # deterministic counts/sums over extracted tables → dataset T-…
 miosotis evidence prepare --request-file - --json              # pin hits/refs/quotes → handles c1…cN
@@ -69,7 +71,7 @@ miosotis artifact create --request-file - --derived-from A-<id> [--supersedes]  
 
 ## Limits
 
-- The bare CLI has no model: saved text stays `enrichment pending` until an AI host applies enrichment.
+- The bare CLI has no model: saved text stays `enrichment pending` until an AI host applies enrichment, or until the opt-in background worker (Codex, see `docs/cli-contract.md`) does. The worker takes about 10–20 s and roughly 16k tokens of the user's Codex plan per note.
 - PDFs, spreadsheets, and web pages are read by the AI host with its own tools. miosotis stores the originals, records what was extracted and how, and calculates numbers itself.
 - Retrieval is keyword-based (any language). How well it finds paraphrases depends on the host's query variants and the multilingual enrichment terms.
 - Structural citation checks prove that a citation points at pinned evidence, not that the sentence is supported by it.

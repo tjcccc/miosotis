@@ -2,6 +2,43 @@
 
 Cross-session development log. Newest first. Keep entries short: what shipped, what was verified, what's open.
 
+## 2026-10-17 — v0.5.0-alpha.1 — Background enrichment with Codex
+
+- **Problem (from `TODO.md`):** saving through an agent took 30–80 s per note, while the save itself takes about 100 ms.
+- **Opt-in background worker (owner design):** a save returns at once and starts `miosotis enrich run` detached. The worker enriches pending notes oldest first, one at a time.
+- **Codex as the first provider, not Claude:** the owner ruled out headless `claude -p` because of Anthropic's terms for subscription logins in third-party tools.
+  - miosotis runs the user's own signed-in Codex CLI and needs no auth of its own.
+  - Codex only thinks: one `codex exec` turn per note, sending back the content fields as strict JSON. miosotis validates the answer, binds it to the revision, and stores it with method `external_runtime` and model `codex`.
+- **Locked down:**
+  - Codex runs with `--ignore-user-config --ignore-rules --ephemeral`, in a read-only sandbox, from an empty scratch folder.
+  - The shell tool, hooks, apps, plugins, browser, computer use, and web search are all off. Any tool event in the stream rejects the answer.
+  - The note goes in as a JSON string value.
+- **Finding:** in cmux terminals the `codex` on PATH is a cmux wrapper that injects hooks, and those hooks receive the prompt. `enable` therefore stores the absolute path of the real binary and skips `cmux-cli-shims` folders.
+- **Commands:**
+  - `enrich worker enable --provider codex [--codex-path] [--model] [--reasoning-effort] --yes`: checks `codex login status`, tests on a made-up note, then writes `[enrich]`.
+  - `enrich worker status` and `enrich worker disable`.
+  - `enrich run`.
+  - The save receipt gains `data.background_enrichment`, and `doctor` checks the stored Codex path.
+- **Only notes saved after enabling:** `enabled_at` in `[enrich]` sets the cutoff, and `enrich run --backlog` sends older notes on request. The consent message and `status` show the backlog count.
+- **Outages don't burn attempts:** if Codex itself is unavailable (missing, signed out, over its limit, timed out), the run stops and the note keeps its attempts. A save reports `unavailable` when the stored path is gone, so the host enriches instead.
+- **The worker leaves to the AI host:**
+  - notes that need file extraction or image reading;
+  - notes that failed 3 times.
+  
+  The Skill tells the host to just reply "Saved" when the worker is on.
+- **Shared guidance:** `TEXT_GUIDANCE` serves both `enrich prepare` and the worker prompt. `applyEnrichment` takes provenance.
+- **Security test:** the process-spawn guard is now an explicit allowlist of three files, each with an exact `spawn` shape and argument arrays only.
+- **Also fixed:** the date-dependent schedule CLI test now runs on a fixed clock.
+- **Verified:**
+  - `pnpm check` (191 tests). New tests use a fake Codex (setup, wrapper skipping, sign-in, tool rejection, invalid answers, the retry cap, outages that cost no attempts, the backlog cutoff, image skipping, the lock, config edits, and the strict schema), plus an end-to-end save → background enrichment run on the built CLI.
+  - A live run against the real Codex in a temp library: enable test 10.8 s / ~16k tokens; two notes saved in 0.12 s each were enriched in ~20 s total, a repeating plan appeared in `schedule`, and a Chinese search found an English note.
+  - Owner-verified in the real library on 2026-10-17: `enable --yes` passed its test (10.4 s, ~16k tokens), a terminal save returned at once with "queued for the background worker", and `enrich worker status` then showed it enriched with nothing pending.
+  - Not verified:
+    - a save run by the Codex host itself: the worker would then start inside Codex's sandbox, where the nested `codex exec` may lack network or write access. With the outage rule, the run would just stop;
+    - Linux and Windows;
+    - very long backlogs.
+  - Known gap: two saves within milliseconds can each start a worker if one finds the other's lock file not yet written. That costs duplicate Codex calls, never data.
+
 ## 2026-10-17 — v0.4.2 — Codex Skill installs to ~/.codex/skills
 
 - **`skill install --host codex`** now copies the Skill to `~/.codex/skills/miosotis` instead of `~/.agents/skills/miosotis` (owner request). `skill status`/`uninstall` follow the same path; a copy left under `~/.agents/skills` is no longer managed and can be removed by hand.

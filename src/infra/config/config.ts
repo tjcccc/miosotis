@@ -29,9 +29,35 @@ export interface MiosotisConfig {
   timezone: string;
   /** Preferred reply language for AI hosts (BCP-47), or undefined to follow the user's own writing. */
   language: string | undefined;
+  /** Opt-in background enrichment; undefined while it is off (the default). */
+  enrichWorker: EnrichWorkerConfig | undefined;
   /** Whether a config file exists on disk (false means defaults are in effect). */
   fileExists: boolean;
 }
+
+export const WORKER_PROVIDERS = ["codex"] as const;
+export type WorkerProvider = (typeof WORKER_PROVIDERS)[number];
+export const REASONING_EFFORTS = ["minimal", "low", "medium", "high"] as const;
+
+export interface EnrichWorkerConfig {
+  provider: WorkerProvider;
+  /** Absolute path of the provider's executable (never resolved from PATH at run time). */
+  codexPath: string;
+  model: string | undefined;
+  reasoningEffort: (typeof REASONING_EFFORTS)[number];
+  /** Notes saved before this instant are sent only on request (`enrich run --backlog`). */
+  enabledAt: string | undefined;
+}
+
+export const EnrichTableSchema = z
+  .object({
+    worker: z.enum(WORKER_PROVIDERS).optional(),
+    codex_path: z.string().min(1).optional(),
+    model: z.string().min(1).max(120).optional(),
+    reasoning_effort: z.enum(REASONING_EFFORTS).optional(),
+    enabled_at: z.iso.datetime({ offset: true }).optional(),
+  })
+  .strict();
 
 const ConfigFileSchema = z
   .object({
@@ -50,6 +76,7 @@ const ConfigFileSchema = z
       .object({ dir: z.string().min(1).optional() })
       .strict()
       .optional(),
+    enrich: EnrichTableSchema.optional(),
   })
   .strict();
 
@@ -88,12 +115,29 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): MiosotisConfig
   const dataDir = resolveConfiguredPath(file.data_dir, paths.home) ?? join(paths.home, DEFAULT_DATA_DIRNAME);
   const timezone = file.user?.timezone ?? systemTimezone();
   assertTimezone(timezone);
+  const enrich = file.enrich;
+  if (enrich?.worker !== undefined && enrich.codex_path === undefined) {
+    throw new MiosotisError(
+      "validation",
+      `Invalid ${paths.configFile}: [enrich] worker needs codex_path (run \`miosotis enrich worker enable\`)`,
+    );
+  }
   return {
     paths,
     library: libraryPaths(dataDir),
     backupDir: resolveConfiguredPath(file.backup?.dir, paths.home),
     timezone,
     language: file.user?.language,
+    enrichWorker:
+      enrich?.worker === undefined || enrich.codex_path === undefined
+        ? undefined
+        : {
+            provider: enrich.worker,
+            codexPath: resolveConfiguredPath(enrich.codex_path, paths.home) ?? enrich.codex_path,
+            model: enrich.model,
+            reasoningEffort: enrich.reasoning_effort ?? "low",
+            enabledAt: enrich.enabled_at,
+          },
     fileExists,
   };
 }
@@ -147,6 +191,8 @@ export function configTemplate(dataDir: string | undefined, language?: string): 
     "[backup]",
     "# Default destination for `miosotis backup create` (a cloud-synced folder is fine here).",
     '# dir = "~/OneDrive/miosotis-backups"',
+    "",
+    "# Background enrichment of new notes is off by default; `miosotis enrich worker enable` turns it on.",
     "",
   ].join("\n");
 }

@@ -50,7 +50,8 @@ The schema lives in `src/infra/db/migrations/`. Schema version is tracked with `
 ## Derived data
 
 - `chunks` stores contiguous, non-overlapping paragraph spans (UTF-16 offsets, never splitting a surrogate pair) for every revision, so pinned evidence always resolves.
-- `derived_records` stores enrichment (and later extraction/interpretation) tied to an exact revision and input digest, with `method`, nullable `model` (never invented), schema and pipeline versions, and `superseded_by`.
+- `derived_records` stores enrichment (and later extraction/interpretation) tied to an exact revision and input digest, with `method`, nullable `model` (never invented), schema and pipeline versions, and `superseded_by`. The AI host's results use `host_agent`; the background worker's use `external_runtime` with model `codex` or `codex/<model>`.
+- The background worker keeps a lock file and a scratch folder (deleted after each call) under `data_dir/worker/`, and a log in `data_dir/logs/enrich-worker.log`. The log holds note refs, outcomes, and errors, never note text.
 - `processing_states` tracks each stage separately (`pending`, `complete`, `partial`, `unsupported`, `failed`), never a single `processed` flag.
 - `search_fts` indexes folded text of **current** revisions only: one row per chunk plus one row of enrichment hints. Capture, correction, and enrichment replace a source's rows inside the same transaction. Policy (retention, inclusion, project) is applied at query time through the `visible_sources` view, so ignoring a source takes effect immediately without reindexing.
 

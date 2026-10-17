@@ -1,6 +1,7 @@
 import { existsSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { BlobStore } from "../infra/blobs/store.js";
+import { isExecutable } from "../infra/codex/exec.js";
 import { loadConfig } from "../infra/config/config.js";
 import { Database, probeSqlite } from "../infra/db/database.js";
 import { latestSchemaVersion, schemaVersion } from "../infra/db/migrate.js";
@@ -72,6 +73,16 @@ export function runDoctor(options: { env?: NodeJS.ProcessEnv; version: string })
     status: config.fileExists ? "ok" : "warn",
     detail: config.fileExists ? config.paths.configFile : "no config file; defaults in effect (run `miosotis init`)",
   });
+  if (config.enrichWorker !== undefined) {
+    const found = isExecutable(config.enrichWorker.codexPath);
+    checks.push({
+      name: "enrich_worker",
+      status: found ? "ok" : "fail",
+      detail: found
+        ? `background enrichment on (Codex at ${config.enrichWorker.codexPath}; \`miosotis enrich worker status\` checks sign-in)`
+        : `Codex not found at ${config.enrichWorker.codexPath}; run \`miosotis enrich worker enable --provider codex\` again`,
+    });
+  }
   const report: DoctorReport = {
     ok: false,
     version: options.version,

@@ -1,5 +1,6 @@
 import type { Command } from "commander";
 import { type CaptureReceipt, capture } from "../../app/capture.js";
+import { startEnrichWorker, type WorkerStart } from "../../app/worker.js";
 import type { CaptureRequestInput } from "../../contracts/capture.js";
 import { MiosotisError } from "../../domain/errors.js";
 import { readRequestFile, readStdin } from "../io.js";
@@ -42,7 +43,15 @@ export async function saveAction(runtime: CliRuntime, words: string[], options: 
   const warnings = looksLikeQuestion(request.text)
     ? ["Saved as a note. To search instead: `miosotis search …`; to take it back: `miosotis undo`."]
     : [];
-  return { data: receipt, human: renderReceipt(receipt), warnings };
+  const background = receipt.sources.length > 0 && !receipt.replayed ? startEnrichWorker(runtime.env) : null;
+  if (background?.state === "unavailable") {
+    warnings.push(`Background enrichment did not start (${background.detail}); the note stays pending.`);
+  }
+  return {
+    data: { ...receipt, background_enrichment: background },
+    human: renderReceipt(receipt, background),
+    warnings,
+  };
 }
 
 async function buildCaptureRequest(words: string[], options: SaveOptions): Promise<CaptureRequestInput> {
@@ -82,7 +91,7 @@ export function looksLikeQuestion(text: string | undefined): boolean {
   return text !== undefined && /[?？]\s*$/u.test(text.trim());
 }
 
-export function renderReceipt(receipt: CaptureReceipt): string {
+export function renderReceipt(receipt: CaptureReceipt, background: WorkerStart | null = null): string {
   if (receipt.sources.length === 0) {
     return "Nothing saved.";
   }
@@ -103,6 +112,10 @@ export function renderReceipt(receipt: CaptureReceipt): string {
       lines.push(`  ${source.ref}  ${source.role} · original text retained (${source.char_length} chars)`);
     }
   }
-  lines.push("Enrichment pending until an AI host applies it.");
+  lines.push(
+    background !== null && background.state !== "unavailable"
+      ? `Enrichment queued for the background worker (${background.provider}).`
+      : "Enrichment pending until an AI host applies it.",
+  );
   return lines.join("\n");
 }

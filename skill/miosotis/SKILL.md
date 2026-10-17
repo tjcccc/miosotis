@@ -3,7 +3,7 @@ name: miosotis
 description: Personal knowledge memory backed by the local `miosotis` CLI. Use when the user wants to save or remember a thought, note, or pasted article; find, review, or summarize what they saved; note or ask about meetings, appointments, and other plans (schedule); analyze or discuss their past notes and ideas; correct, ignore, remove (trash), restore, or permanently delete a saved note; regenerate or reopen a miosotis report; or when they mention miosotis, S-/A- IDs, or "my notes". Works in any language.
 compatibility: Requires the `miosotis` command (v0.1+) on PATH and a shell tool. Local library only.
 metadata:
-  version: "0.4.2"
+  version: "0.5.0-alpha.1"
 ---
 
 # miosotis
@@ -56,8 +56,8 @@ miosotis keeps the user's material faithfully and lets you (the AI host) organiz
 1. Decide what to save: exactly the content the user means, verbatim, not the whole conversation. Pasted third-party material uses `"origin": "imported"` with `provenance` (author, URL, title, reported publication date) when visible. AI output the user explicitly wants kept uses `"origin": "ai_saved"`.
 2. Add `"project"` only when the user names one (it is created if new). If they name a project **after** saving, do not save again: use `miosotis source assign <S-id…> --project <slug> --json`.
 3. `miosotis save --request-file - --json` → note `data.sources[0].ref`.
-4. Enrich it right away (see **Enrich**).
-5. Reply with a short receipt, for example: `Saved S-…@v1 · project miosotis. Enrichment complete.`
+4. Enrich it right away (see **Enrich**), **unless** the receipt's `data.background_enrichment` is set (`state` `started` or `running`). Then the user turned on the background worker: don't enrich text notes yourself. Reply right away, for example `Saved S-…@v1. Enriching in the background.`, and stop. A plan appears in `miosotis schedule` a few seconds later. You still handle images and file extraction, which the worker leaves to you.
+5. Otherwise reply with a short receipt, for example: `Saved S-…@v1 · project miosotis. Enrichment complete.`
 
 **Files:** when the user refers to local files (images, Markdown/text, PDFs, spreadsheets), save them in the same request with `"attachments": [{"path": "/abs/path", "origin": "imported"|"user"}]`. Their words become the comment, and each file becomes its own Source linked to it.
 - Use only paths you actually have. An image shown in chat that you cannot access as a file is unavailable; say so and never invent a path.
@@ -122,6 +122,8 @@ Answer from its `events` only: count them, list date, time or part of day, title
 3. `miosotis enrich apply --request-file - --json`.
 
 **Backlog:** `miosotis enrich pending --json` lists unenriched items (for example from bare `miosotis "…"` saves). Offer to process them, or process a few when the user asks. Add `events` for plans you find there too: they are resolved from when the note was saved, not from today.
+
+**Background worker (opt-in).** If the user finds saving slow, tell them they can let Codex enrich new notes in the background: `miosotis enrich worker enable --provider codex`. They run it themselves, because it sends their notes to Codex and uses their Codex plan. `miosotis enrich worker status --json` shows whether it is on, and its progress. Notes it failed on 3 times stay in `enrich pending` for you.
 
 ## Undo
 

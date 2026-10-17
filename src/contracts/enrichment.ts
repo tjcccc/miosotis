@@ -210,3 +210,20 @@ export type EventRequestInput = z.input<typeof EventInput>;
 export type CancelRequestInput = z.input<typeof CancelInput>;
 export type EnrichmentRequest = z.infer<typeof EnrichmentRequest>;
 export type EnrichmentRequestInput = z.input<typeof EnrichmentRequest>;
+
+/**
+ * What a background model returns: only the content fields. The worker binds it to the revision
+ * (`source_ref`), reports coverage itself, and leaves images and file extraction to the AI host.
+ */
+export const WorkerEnrichmentOutput = EnrichmentRequest.pick({
+  title: true,
+  abstract: true,
+  language: true,
+  terms: true,
+  entities: true,
+  project_suggestions: true,
+  assertions: true,
+  events: true,
+  cancels: true,
+  warnings: true,
+});

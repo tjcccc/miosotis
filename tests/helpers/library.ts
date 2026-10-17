@@ -52,11 +52,17 @@ export interface CliRun {
 
 /** Runs the CLI in-process against an isolated home, capturing output. */
 export async function cli(env: NodeJS.ProcessEnv, ...argv: string[]): Promise<CliRun> {
+  return cliAt(undefined, env, ...argv);
+}
+
+/** Like `cli`, with a fixed clock for date-relative commands such as `schedule`. */
+export async function cliAt(now: (() => Date) | undefined, env: NodeJS.ProcessEnv, ...argv: string[]): Promise<CliRun> {
   let stdout = "";
   let stderr = "";
   const code = await runCli(argv, {
     env,
     streams: { stdout: (text) => (stdout += text), stderr: (text) => (stderr += text) },
+    ...(now === undefined ? {} : { now }),
   });
   return { code, stdout, stderr, json: () => JSON.parse(stdout) };
 }

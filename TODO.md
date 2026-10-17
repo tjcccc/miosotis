@@ -1,6 +1,8 @@
 # TODO
 
-## Fast capture (discussed 2026-09-28, not scheduled)
+## Fast capture (discussed 2026-09-28; background worker shipped in v0.5.0-alpha.1)
+
+Done in v0.5.0-alpha.1: the opt-in background worker with Codex as its provider (`miosotis enrich worker enable --provider codex`), and the Skill's "just reply Saved" rule when the worker is on. Still open: direct BYOK or local providers for the same worker.
 
 Problem: saving through the agent takes 30–80 s per note, measured in the owner's session (a weekly meeting took 1 min 20 s, a one-time meeting 34 s). That's annoying when ideas come one after another. The CLI save itself takes about 100 ms; the rest is the agent's reasoning plus the prepare → enrich round trips.
 

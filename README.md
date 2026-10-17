@@ -55,6 +55,17 @@ miosotis prefs                        # your reply language and timezone
 miosotis doctor                       # health check (shows no note content)
 ```
 
+## Faster saving (optional)
+
+Through an AI host, each save waits for the agent to summarize the note. Saving from the terminal (`miosotis "…"`) is instant but leaves the note unenriched. To have new notes enriched in the background, let your own Codex CLI do it:
+
+```bash
+miosotis enrich worker enable --provider codex   # explains, then re-run with --yes
+miosotis enrich worker status
+```
+
+This sends the text of each note you save from then on to Codex, using your Codex plan (about 10–20 s per note). Notes saved earlier stay as they are unless you run `miosotis enrich run --backlog`. Codex gets no tools: it only returns a summary, search terms, and schedule entries, which miosotis checks before storing. Turn it off with `miosotis enrich worker disable`.
+
 ## Your data
 
 - **Everything lives in `~/.miosotis`** on your computer. miosotis itself never sends anything anywhere; the AI agent you use reads what it works with, under that agent's own terms.

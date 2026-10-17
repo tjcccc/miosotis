@@ -194,10 +194,23 @@ describe("security boundaries (scenario K)", () => {
       expect(code, where).not.toMatch(/\bexecSync\(|\bexecFile(Sync)?\(|child_process"\)\.exec|shell:\s*true/);
       expect(code, where).not.toMatch(/from "node:(http|https|net|tls|dgram)"|\bfetch\(|from "undici"/);
       if (code.includes("node:child_process")) {
-        // The only process miosotis starts is the OS "open this file" helper, with an argument array.
-        expect(where).toBe("src/app/artifacts.ts");
-        expect(code).toMatch(/spawn\(command, args as string\[\], \{ detached: true, stdio: "ignore" \}\)/);
+        // miosotis starts only these processes, each with an argument array and never a shell.
+        const allowed = SPAWNERS[where];
+        expect(allowed, `${where} starts a process`).toBeDefined();
+        expect(code).toMatch(allowed as RegExp);
+        expect(code.match(/\bspawn\(/g)?.length, where).toBe(1);
       }
     }
   });
 });
+
+/** Every file allowed to start a process, and how it must call `spawn`. */
+const SPAWNERS: Record<string, RegExp> = {
+  // The OS "open this file" helper.
+  "src/app/artifacts.ts": /spawn\(command, args as string\[\], \{ detached: true, stdio: "ignore" \}\)/,
+  // The opt-in background worker: this same CLI (`enrich run`), detached.
+  "src/infra/process/detached.ts": /spawn\(process\.execPath, \[script, \.\.\.args\], \{/,
+  // The worker's tool-less Codex call, at the absolute path the user enabled.
+  "src/infra/codex/exec.ts":
+    /spawn\(command, args, \{ cwd: options\.cwd, env: options\.env, stdio: \["pipe", "pipe", "pipe"\] \}\)/,
+};
