@@ -3,7 +3,7 @@ name: miosotis
 description: Personal knowledge memory backed by the local `miosotis` CLI. Use when the user wants to save or remember a thought, note, or pasted article; find, review, or summarize what they saved; note or ask about meetings, appointments, and other plans (schedule); analyze or discuss their past notes and ideas; correct, ignore, remove (trash), restore, or permanently delete a saved note; regenerate or reopen a miosotis report; or when they mention miosotis, S-/A- IDs, or "my notes". Works in any language.
 compatibility: Requires the `miosotis` command (v0.1+) on PATH and a shell tool. Local library only.
 metadata:
-  version: "0.5.0-alpha.2"
+  version: "0.5.0-alpha.4"
 ---
 
 # miosotis
@@ -38,7 +38,8 @@ miosotis keeps the user's material faithfully and lets you (the AI host) organiz
 | states a dated arrangement: a meeting, appointment, trip ("I have a meeting next Monday morning in the Tokyo room", in any language) | **Save** + **Schedule** |
 | asks what's planned ("What's on next week?", "How many meetings do I have next week?") | **Schedule** (list) |
 | moves or cancels a planned item | **Schedule** (change) |
-| see, list, organize, summarize what they saved | **Review** (descriptive) |
+| just look back: see what they saved, list today's or last week's notes, open a note ("what did I save yesterday?", "show me S-…") | **Show** |
+| organize or summarize what they saved | **Review** (descriptive) |
 | answer why / compare / assess from their material | **Analysis** (interpretive) |
 | pick up a topic and keep thinking together | **Discuss** |
 | fix, ignore, remove, restore, or permanently delete a saved note, or empty the trash | **Govern** |
@@ -106,6 +107,15 @@ Answer from its `events` only: count them, list date, time or part of day, title
 **Not supported:**
 - **Reminders and calendar sync:** miosotis never notifies anyone. If the user wants a calendar file, you may build one from `schedule --json` yourself.
 - **Unusual repeat patterns** beyond every N days, weeks, or months: keep them as a note, as described above.
+
+## Show
+
+When the user only wants to look back, with no question to answer, run `miosotis show` and relay what it prints. Don't summarize, analyze, or pin evidence unless they ask. It needs no model.
+
+- Recent notes: `miosotis show`. By date: `--today`, `--days N` (the last N days, including today), or `--from YYYY-MM-DD --to YYYY-MM-DD` (inclusive). Dates are local to the user's timezone (`miosotis prefs --json`). Add `--project <slug>` for one project, and `--cursor` for more.
+- One note: `miosotis show <S-id>` prints its text exactly as saved. Relay it verbatim; don't rephrase or translate it.
+- Notes about something: `miosotis show <words>` lists matches. Searching doesn't filter by date.
+- Run it without `--json` and relay the printed lines. Use `--json` (`data.view` is `list`, `source`, or `search`) only if you need fields from it.
 
 ## Enrich
 

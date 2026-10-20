@@ -46,6 +46,8 @@ The agent always asks before removing or deleting anything.
 These work directly in your terminal, with no AI involved:
 
 ```bash
+miosotis show                         # recent notes (--today, --days 7, --project <slug>, or a word to search)
+miosotis show S-…                     # one note, exactly as saved
 miosotis schedule                     # the next 7 days (--days 14, --months 0, --from 2026-10-01 --to 2026-10-31, --past)
 miosotis trash list                   # what's in the trash
 miosotis restore S-…                  # bring an item back

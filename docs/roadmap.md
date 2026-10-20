@@ -22,7 +22,9 @@ Direction agreed with the owner on 2026-09-27 (schedule inserted as v0.4 on 2026
 | 0.4.2 | The Codex Skill installs to `~/.codex/skills` | done |
 | 0.5.0-alpha.1 | Opt-in background enrichment: a save returns at once and the user's own signed-in Codex CLI enriches new notes (tool-less, read-only, validated by miosotis) | done (owner verified live) |
 | 0.5.0-alpha.2 | Polish: confirmations shown as notices, saves from inside the Codex sandbox leave enrichment to the host, roadmap catch-up | done |
-| 0.5.0-alpha.3 | More worker providers: local Ollama and ChatGPT-plan sign-in (owner's priority, 2026-10-17) | planned |
+| 0.5.0-alpha.3 | Worker hardening: the lock can no longer be taken by two workers at once; `enrich worker status` points to a retry after an outage | done |
+| 0.5.0-alpha.4 | `miosotis show`: look back at saved notes (recent, by local date, by project, one note verbatim, or by words) with no model; a Skill rule to relay it as-is | done |
+| 0.5.0-alpha.5 | More worker providers: local Ollama and ChatGPT-plan sign-in (owner's priority, 2026-10-17) | planned |
 | 0.5.0 | Local HTTP service over the same use cases; BYOK and local providers via `@priest-ai/core`; standalone `miosotis "…"` with AI | planned |
 | later | Web UI; subscription-backed runtime adapter; presentation decks; richer interactive templates | ideas |
 

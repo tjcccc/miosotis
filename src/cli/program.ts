@@ -20,6 +20,7 @@ import { registerProject } from "./commands/project.js";
 import { collect, registerSave, type SaveOptions, saveAction } from "./commands/save.js";
 import { registerSchedule } from "./commands/schedule.js";
 import { registerSearch } from "./commands/search.js";
+import { registerShow } from "./commands/show.js";
 import { registerSource } from "./commands/source.js";
 import { registerTable } from "./commands/table.js";
 import { registerTrash } from "./commands/trash.js";
@@ -44,6 +45,7 @@ export function buildProgram(runtime: CliRuntime): Command {
   registerSource(program, runtime);
   registerProject(program, runtime);
   registerSearch(program, runtime);
+  registerShow(program, runtime);
   registerSchedule(program, runtime);
   registerEnrich(program, runtime);
   registerExtract(program, runtime);

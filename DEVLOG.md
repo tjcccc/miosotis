@@ -2,6 +2,32 @@
 
 Cross-session development log. Newest first. Keep entries short: what shipped, what was verified, what's open.
 
+## 2026-10-20 — v0.5.0-alpha.4 — `miosotis show`
+
+- **Why:** the owner wanted to just look back at what they saved, with no discussion or analysis, and without a model. The read paths existed (`source list`, `source get`, `search`), but they were named for AI hosts. "show" was the word that came to mind, and it fell through to a save.
+- **`miosotis show`** (`src/app/show.ts`, a thin use case over those read paths):
+  - No words: recent notes, newest first. Each line shows the local time, the title or the first line while the note is still pending, its projects, and its ID.
+  - `--today`, `--days N`, and `--from/--to` take local dates in the user's timezone, with `--to` inclusive. A bare date means local midnight, not UTC.
+  - `--project`, `--limit`, `--cursor`.
+  - One `S-…` ID (checked as a real ULID, so "S-curve" still searches) prints that note exactly as saved.
+  - Any other words search. Searching takes no date options.
+  - `--json` gives `data.view`: `list`, `source`, or `search`. Ignored and trashed notes stay out of lists and searches.
+- **Skill:** a **Show** intent ("what did I save yesterday?", "show me S-…") runs `show` and relays its output as-is, with no summary unless asked. The intent table now separates it from Review.
+- **Typo guard side effect:** single words one edit away from `show` (for example `shw`, `snow`, `shop`) now stop with "Did you mean `miosotis show`?" instead of saving. `miosotis save <word>` still saves them.
+- **Docs:** `docs/cli-contract.md`, the README's handy commands, and the roadmap. Providers move to 0.5.0-alpha.5.
+- **Verified:**
+  - `pnpm check`. New tests cover: day windows in Asia/Shanghai (23:50 yesterday excluded and 00:10 today included, at both edges of `--days`); first-line previews; a multi-line CJK note returned exactly; search routing, including "S-curve"; trashed notes left out of lists and searches; the option conflicts; and the CLI command with the typo guard.
+  - The installed CLI was not exercised against the real library.
+
+## 2026-10-20 — v0.5.0-alpha.3 — Worker lock and outage hint
+
+- **Lock race fixed (the known gap from alpha.1):** `tryLock` used to create the lock file empty and then write the holder into it. A second worker starting in that gap read an empty file, took it for stale, removed it, and ran as well. Now the holder is written to a private draft file and hard-linked into place, so the lock never exists without its holder. A new e2e test races 12 processes for the lock, 5 times. Before the fix, 5 won in a single round; now exactly one wins in every round.
+- **Retry hint after an outage:** when the last run stopped because Codex was unavailable and notes are still pending, `enrich worker status` (human output) says to run `miosotis enrich run`. Nothing retries on its own until the next save.
+- **No background service (owner decision):** a launchd/systemd service was considered and set aside. The reasons are in `TODO.md`: the cost of per-OS install and of restarting after upgrades, the standing agency, and that the worker moves into the planned HTTP service later.
+- **Ollama spike (no code):** the worker prompt with the strict schema as Ollama `format`, on Chinese, Korean, and Japanese notes. `gemma4:12b-mlx` got every date and phrase right; `gemma4:e4b-mlx` was too weak for schedule entries; Ollama did not enforce the schema's string `pattern`. Results and the content checks they call for are in `TODO.md`.
+- **Roadmap:** the provider work moves to 0.5.0-alpha.4.
+- **Verified:** `pnpm check` (195 tests), plus the e2e suite 3 more times to check the race test isn't flaky. Not covered: the rarer race where two workers both clear a stale lock left by a crashed worker.
+
 ## 2026-10-17 — v0.5.0-alpha.2 — Polish after the first live run
 
 - **Confirmations read as notices:** in human mode, a `confirmation_required` stop now prints `Needs confirmation: …` instead of `error: …`, since nothing failed or changed. The exit code (5) and the JSON envelope are unchanged. The owner found `enrich worker enable` without `--yes` looked like a failure.

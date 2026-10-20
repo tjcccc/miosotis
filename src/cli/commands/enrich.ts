@@ -144,6 +144,15 @@ export function registerEnrich(program: Command, runtime: CliRuntime): void {
               `Worker: ${status.running_pid === null ? "idle" : `running (pid ${status.running_pid})`} · ${status.pending} pending${status.backlog > 0 ? ` (${status.backlog} saved before it was enabled: \`enrich run --backlog\`)` : ""}${status.capped > 0 ? ` (${status.capped} left for the AI host after repeated failures)` : ""}`,
             ]
           : ["Background enrichment: off (`miosotis enrich worker enable --provider codex` turns it on)"];
+        // After an outage nothing retries until the next save; say so instead of waiting silently.
+        if (
+          status.enabled &&
+          status.running_pid === null &&
+          status.pending > 0 &&
+          status.recent.at(-1)?.outcome === "unavailable"
+        ) {
+          lines.push("The last run stopped because Codex was unavailable. Run `miosotis enrich run` to retry now.");
+        }
         for (const entry of status.recent) {
           lines.push(
             `  ${String(entry.at)}  ${String(entry.ref)}  ${String(entry.outcome)}${entry.detail ? `  ${String(entry.detail)}` : ""}`,
